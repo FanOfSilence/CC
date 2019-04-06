@@ -1,0 +1,22 @@
+// Hello world program
+
+
+int main() {
+    if (false) {
+        return 2;
+    }
+    else {
+  //  if (false) {
+  //      return 1;
+  //  }
+    int i = 0;
+return i;
+    }
+}
+
+void a(int i) {
+}
+
+void b() {
+a("a");
+}	

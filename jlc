@@ -1,0 +1,5 @@
+#!/bin/bash
+DIR="$(dirname $0)"
+SRCDIR="${DIR}/src"
+exec java -cp "$DIR:$SRCDIR:$CLASSPATH" src.jlc "$@"
+
