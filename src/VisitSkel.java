@@ -128,7 +128,8 @@ public class VisitSkel {
 			for (Stmt stmt : p.liststmt_) {
 				returns = stmt.accept(stmtRetVisitor, env);
 				if (returns && p.liststmt_.indexOf(stmt) != p.liststmt_.size() - 1) {
-					throw new TypeException("Block cannot contain statement after return statement");
+					break;
+//					throw new TypeException("Block cannot contain statement after return statement");
 				}
 			}
 			return returns;
