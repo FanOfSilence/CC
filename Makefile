@@ -5,7 +5,7 @@ JAVA_FLAGS=
 CUP=java_cup.Main
 CUPFLAGS=-nopositions -expect 100
 JLEX=JLex.Main
-all: jlc
+all: clean jlc
 
 jlc: absyn src/Yylex.class src/PrettyPrinter.class src/jlc.class src/ComposVisitor.class src/AbstractVisitor.class src/FoldVisitor.class src/AllVisitor.class src/parser.class src/sym.class src/jlc.class
 
