@@ -16,6 +16,8 @@ import src.Absyn.Void;
  */
 	
 public class VisitSkel {
+	
+	// Top level visitor that adds the available functions, calls AddDefVisitor and TopDefVisitor, and makes sure int main() is defined
 	public class ProgVisitor implements Prog.Visitor<Env, String> {
 		public Env visit(src.Absyn.Program p, String arg) throws TypeException { /* Code For Program Goes Here */
 			System.out.println("Starting prog visitor");
@@ -61,6 +63,7 @@ public class VisitSkel {
 		}
 	}
 
+	// Adds all functions to the environment
 	public class AddDefVisitor implements TopDef.Visitor<Env, Env> {
 
 		@Override
@@ -77,6 +80,8 @@ public class VisitSkel {
 		}
 		
 	}
+	
+	// Calls BlkVisitor and BlkRet to typecheck a function
 	public class TopDefVisitor implements TopDef.Visitor<Env, Env> {
 		public Env visit(src.Absyn.FnDef p, Env env) throws TypeException { /* Code For FnDef Goes Here */
 			Type t = p.type_;
@@ -92,12 +97,14 @@ public class VisitSkel {
 		}
 	}
 
+	// Returns the name and type of an argument
 	public class ArgVisitor implements Arg.Visitor<Tuple<String, Type>, Env> {
 		public Tuple<String, Type> visit(src.Absyn.Argument p, Env arg) { /* Code For Argument Goes Here */
 			return new Tuple<String, Type>(p.ident_, p.type_);
 		}
 	}
 
+	// On block level, that calls CheckStmt for all statements to type check them
 	public class BlkVisitor implements Blk.Visitor<Env, Env> {
 		public Env visit(src.Absyn.Block p, Env env) throws TypeException { /* Code For Block Goes Here */
 			env.newBlock();
@@ -119,6 +126,7 @@ public class VisitSkel {
 		}
 	}
 	
+	// On block level, makes sure that a block returns
 	public class BlkRet implements Blk.Visitor<Boolean, Env> {
 
 		@Override
@@ -127,17 +135,19 @@ public class VisitSkel {
 			Boolean returns = false;
 			for (Stmt stmt : p.liststmt_) {
 				returns = stmt.accept(stmtRetVisitor, env);
-				if (returns && p.liststmt_.indexOf(stmt) != p.liststmt_.size() - 1) {
+				if (returns) {
 					break;
-//					throw new TypeException("Block cannot contain statement after return statement");
 				}
+//				if (returns && p.liststmt_.indexOf(stmt) != p.liststmt_.size() - 1) {
+//					throw new TypeException("Block cannot contain statement after return statement");
+//				}
 			}
 			return returns;
 		}
 	}
 
 
-
+	// Visitor for items that returns enough information to typecheck the statements they are used in
 	public class ItemVisitor implements Item.Visitor<Triple<String, Type, Boolean>, Env> {
 
 		@Override
@@ -154,6 +164,7 @@ public class VisitSkel {
 		}
 	}
 
+	// Calls InferExprType for each expression to check the types in every statement
 	public class CheckStmt implements Stmt.Visitor<Env, Env> {
 
 		@Override
@@ -281,6 +292,7 @@ public class VisitSkel {
 		
 	}
 	
+	// Infer the type of an expression and through the types of its subexpressions
 	public class InferExprType implements Expr.Visitor<Type, Env>  {
 
 		@Override
@@ -423,6 +435,7 @@ public class VisitSkel {
 		}
 	}
 	
+	// Makes sure that there are no illegal expressions on statement level
 	public class NakedExpr implements Expr.Visitor<Boolean, Env> {
 
 		@Override
@@ -496,6 +509,8 @@ public class VisitSkel {
 		}
 		
 	}
+	
+	// Class that checks that a statement contains a return in all possible paths
 	public class StmtRet implements Stmt.Visitor<Boolean, Env> {
 
 		@Override
@@ -583,7 +598,8 @@ public class VisitSkel {
 		
 	}
 	
-	// Evaluate expression (even though only some expression can actually be evaluateda at this point)
+	// Evaluate expression (even though only some expression can actually be evaluated at this point)
+	// Only the simplest expressions are evaluated
 	public class EvalExpr implements Expr.Visitor<Double, Env> {
 
 		@Override
@@ -691,60 +707,7 @@ public class VisitSkel {
 		
 	}
 	
-	public class EvalAddOpVisitor<R, A> implements AddOp.Visitor<R, A> {
-		public R visit(src.Absyn.Plus p, A arg) { /* Code For Plus Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.Minus p, A arg) { /* Code For Minus Goes Here */
-			return null;
-		}
-	}
-	
-	class MulOpVisitor<R, A> implements MulOp.Visitor<R, A> {
-		public R visit(src.Absyn.Times p, A arg) { /* Code For Times Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.Div p, A arg) { /* Code For Div Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.Mod p, A arg) { /* Code For Mod Goes Here */
-			return null;
-		}
-	}
-
-	class RelOpVisitor<R, A> implements RelOp.Visitor<R, A> {
-		public R visit(src.Absyn.LTH p, A arg) { /* Code For LTH Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.LE p, A arg) { /* Code For LE Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.GTH p, A arg) { /* Code For GTH Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.GE p, A arg) { /* Code For GE Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.EQU p, A arg) { /* Code For EQU Goes Here */
-			return null;
-		}
-
-		public R visit(src.Absyn.NE p, A arg) { /* Code For NE Goes Here */
-			return null;
-		}
-	}
-
-	
-//	public class EvalType implements 
-	
-	
+	// Internal type for string literals that can be used in printString
 	public class StringLit extends Type {
 		@Override
 		public <R, A> R accept(Visitor<R, A> v, A arg) {
@@ -767,6 +730,7 @@ public class VisitSkel {
 	
 }
 
+// Definition of a function
 class FunType {
 	public FunType(LinkedList<Tuple<String, Type>> args, Type val) {
 		this.args = args;
@@ -777,8 +741,13 @@ class FunType {
 }
 
 class Env {
+	// All function signatures
 	public HashMap<String, FunType> signature;
+	
+	// Current signature that is being checked
 	public String currentSignature;
+	
+	//Context with all variables initialized in this context
 	public LinkedList<HashMap<String, Tuple<Type, Boolean>>> contexts;
 	
 	public Env() {
@@ -844,6 +813,8 @@ class Env {
 	}
 }
 
+// Classes for creating tuples
+
 class Tuple<X, Y> { 
 	public final X x; 
 	public final Y y; 
@@ -862,91 +833,4 @@ class Triple<X, Y, Z> {
 		this.y = y;
 		this.z = z;
 	} 
-}
-
-
-
-
-
-
-
-
-
-
-
-
-class TypeVisitor<R, A> implements Type.Visitor<R, A> {
-	public R visit(src.Absyn.Int p, A arg) { /* Code For Int Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Doub p, A arg) { /* Code For Doub Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Bool p, A arg) { /* Code For Bool Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Void p, A arg) { /* Code For Void Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Fun p, A arg) { /* Code For Fun Goes Here */
-		p.type_.accept(new TypeVisitor<R, A>(), arg);
-		for (Type x : p.listtype_) {
-			/* ... */ }
-		return null;
-	}
-}
-
-class AddOpVisitor<R, A> implements AddOp.Visitor<R, A> {
-	public R visit(src.Absyn.Plus p, A arg) { /* Code For Plus Goes Here */
-		
-		return null;
-	}
-
-	public R visit(src.Absyn.Minus p, A arg) { /* Code For Minus Goes Here */
-		return null;
-	}
-}
-
-class MulOpVisitor<R, A> implements MulOp.Visitor<R, A> {
-	public R visit(src.Absyn.Times p, A arg) { /* Code For Times Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Div p, A arg) { /* Code For Div Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.Mod p, A arg) { /* Code For Mod Goes Here */
-		return null;
-	}
-}
-
-class RelOpVisitor<R, A> implements RelOp.Visitor<R, A> {
-	public R visit(src.Absyn.LTH p, A arg) { /* Code For LTH Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.LE p, A arg) { /* Code For LE Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.GTH p, A arg) { /* Code For GTH Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.GE p, A arg) { /* Code For GE Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.EQU p, A arg) { /* Code For EQU Goes Here */
-		return null;
-	}
-
-	public R visit(src.Absyn.NE p, A arg) { /* Code For NE Goes Here */
-		return null;
-	}
 }
