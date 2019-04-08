@@ -15,14 +15,14 @@ import src.Absyn.Void;
  * Replace the R and A parameters with the desired return and context types.
  */
 	
-public class VisitSkel {
+public class TypeChecker {
 	
 	// Top level visitor that adds the available functions, calls AddDefVisitor and TopDefVisitor, and makes sure int main() is defined
 	public class ProgVisitor implements Prog.Visitor<Env, String> {
 		public Env visit(src.Absyn.Program p, String arg) throws TypeException { /* Code For Program Goes Here */
 			System.out.println("Starting prog visitor");
 			Env env = new Env();
-			
+
 			String argumentName = "s";
 			
 			LinkedList<Tuple<String, Type>> printStringArgs = new LinkedList<Tuple<String, Type>>();

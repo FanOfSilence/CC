@@ -2,7 +2,7 @@ package src;
 import java_cup.runtime.*;
 import src.*;
 import src.Absyn.*;
-import src.VisitSkel.ProgVisitor;
+import src.TypeChecker.ProgVisitor;
 
 import java.io.*;
 
@@ -39,8 +39,8 @@ public class jlc
       System.out.println("[Linearized Tree]");
       System.out.println();
       System.out.println(PrettyPrinter.print(parse_tree));
-      VisitSkel skel = new VisitSkel();
-      VisitSkel.ProgVisitor progVis = skel.new ProgVisitor();
+      TypeChecker skel = new TypeChecker();
+      TypeChecker.ProgVisitor progVis = skel.new ProgVisitor();
       parse_tree.accept(progVis, null);
       System.out.println("Program accepted without any type errors!");
       System.err.println("OK");
