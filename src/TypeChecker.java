@@ -18,8 +18,8 @@ import src.Absyn.Void;
 public class TypeChecker {
 	
 	// Top level visitor that adds the available functions, calls AddDefVisitor and TopDefVisitor, and makes sure int main() is defined
-	public class ProgVisitor implements Prog.Visitor<Env, String> {
-		public Env visit(src.Absyn.Program p, String arg) throws TypeException { /* Code For Program Goes Here */
+	public class ProgVisitor implements Prog.Visitor<Prog, String> {
+		public Prog visit(src.Absyn.Program p, String arg) throws TypeException { /* Code For Program Goes Here */
 			System.out.println("Starting prog visitor");
 			Env env = new Env();
 
@@ -52,14 +52,15 @@ public class TypeChecker {
 				def.accept(new AddDefVisitor(), env);
 			}
 			
+			ListTopDef listTypedTopDef = new ListTopDef();
 			for (TopDef x : p.listtopdef_) {
-				x.accept(new TopDefVisitor(), env);
+				listTypedTopDef.add(x.accept(new TopDefVisitor(), env));
 			}
 			FunType mainFun = env.lookupFun("main");
 			if (mainFun == null || !mainFun.val.equals(new Int()) || mainFun.args.size() != 0) {
 				throw new TypeException("Function int main() has to be defined");
 			}
-			return env;
+			return new Program(listTypedTopDef);
 		}
 	}
 
@@ -82,24 +83,24 @@ public class TypeChecker {
 	}
 	
 	// Calls BlkVisitor and BlkRet to typecheck a function
-	public class TopDefVisitor implements TopDef.Visitor<Env, Env> {
-		public Env visit(src.Absyn.FnDef p, Env env) throws TypeException { /* Code For FnDef Goes Here */
+	public class TopDefVisitor implements TopDef.Visitor<TopDef, Env> {
+		public TopDef visit(src.Absyn.FnDef p, Env env) throws TypeException { /* Code For FnDef Goes Here */
 			Type t = p.type_;
 			String id = p.ident_;
 			env.emptyEnv();
 			env.currentSignature = id;
-			p.blk_.accept(new BlkVisitor(), env);
+			Block typedBlock = p.blk_.accept(new BlkVisitor(), env);
 			Boolean returns = p.blk_.accept(new BlkRet(), env);
 			if (!returns && !t.equals(new Void())) {
 				throw new TypeException("Function " + id + " has to return a value in all paths");
 			}
-			return env;
+			return new FnDef(t, id, p.listarg_, typedBlock);
 		}
 	}
 
 	// Returns the name and type of an argument
 	public class ArgVisitor implements Arg.Visitor<Tuple<String, Type>, Env> {
-		public Tuple<String, Type> visit(src.Absyn.Argument p, Env arg) { /* Code For Argument Goes Here */
+		public Tuple<String, Type> visit(Argument p, Env arg) { /* Code For Argument Goes Here */
 			return new Tuple<String, Type>(p.ident_, p.type_);
 		}
 	}
