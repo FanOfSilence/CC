@@ -105,8 +105,8 @@ public class TypeChecker {
 	}
 
 	// On block level, that calls CheckStmt for all statements to type check them
-	public class BlkVisitor implements Blk.Visitor<Env, Env> {
-		public Env visit(src.Absyn.Block p, Env env) throws TypeException { /* Code For Block Goes Here */
+	public class BlkVisitor implements Blk.Visitor<Block, Env> {
+		public Block visit(Block p, Env env) throws TypeException { /* Code For Block Goes Here */
 			env.newBlock();
 			FunType currentFun = env.lookupFun(env.currentSignature);
 			for (Tuple<String, Type> tupleArg : currentFun.args) {
@@ -118,11 +118,12 @@ public class TypeChecker {
 					System.out.println("Trying to add var for function " + env.currentSignature + " that has already been added");
 				}
 			}
+			ListStmt listTypedStmt = new ListStmt();
 			for (Stmt x : p.liststmt_) {
-				x.accept(new CheckStmt(), env);
+				listTypedStmt.add(x.accept(new CheckStmt(), env));
 			}
 			env.endBlock();
-			return env;
+			return new Block(listTypedStmt);
 		}
 	}
 	
@@ -166,21 +167,21 @@ public class TypeChecker {
 	}
 
 	// Calls InferExprType for each expression to check the types in every statement
-	public class CheckStmt implements Stmt.Visitor<Env, Env> {
+	public class CheckStmt implements Stmt.Visitor<Stmt, Env> {
 
 		@Override
-		public Env visit(Empty p, Env env) {
-			return env;
+		public Stmt visit(Empty p, Env env) {
+			return p;
 		}
 
 		@Override
-		public Env visit(BStmt p, Env env) throws TypeException {
-			p.blk_.accept(new BlkVisitor(), env);
-			return env;
+		public Stmt visit(BStmt p, Env env) throws TypeException {
+			Block typedBlock = p.blk_.accept(new BlkVisitor(), env);
+			return new BStmt(typedBlock);
 		}
 
 		@Override
-		public Env visit(Decl p, Env env) throws TypeException {
+		public Stmt visit(Decl p, Env env) throws TypeException {
 			Type initType = p.type_;
 			for (Item item : p.listitem_) {
 				Triple<String, Type, Boolean> declTriple = item.accept(new ItemVisitor(), env);
@@ -193,11 +194,12 @@ public class TypeChecker {
 					throw new TypeException("Can't assign epxression of type " + exprType.toString() + " to type " + initType.toString());
 				}
 			}
-			return env;
+			//TODO: Need type information here? Not sure...
+			return p;
 		}
 
 		@Override
-		public Env visit(Ass p, Env env) throws TypeException {
+		public Stmt visit(Ass p, Env env) throws TypeException {
 			Tuple<src.Absyn.Type, Boolean> varTuple  = env.lookupVar(p.ident_);
 			if (varTuple == null) {
 				throw new TypeException("Can't assign to var " + p.ident_ + " that has not been declared");
@@ -205,95 +207,103 @@ public class TypeChecker {
 			Type varType = varTuple.x;
 			Tuple<Type, TypedE> assignmentTuple = p.expr_.accept(new InferExprType(), env);
 			Type exprType = assignmentTuple.x;
+			TypedE typedExpr = assignmentTuple.y;
 			if (exprType.equals(varType)) {
 				env.updateVar(p.ident_);
-				return env;
+				return new Ass(p.ident_, typedExpr);
 			}
 			throw new TypeException("Can't assign expression of type " + exprType.toString() + " to var of type " + varType.toString());
 		}
 
 		@Override
-		public Env visit(Incr p, Env env) throws TypeException {
+		public Stmt visit(Incr p, Env env) throws TypeException {
 			Tuple<src.Absyn.Type, Boolean> t = env.lookupVar(p.ident_);
 			if (t.x.equals(new Doub()) || t.x.equals(new Int())) {
-				return env;
+				//TODO: Same as below
+				return p;
 			}
 			throw new TypeException("Can only increment int or double");
 		}
 
 		@Override
-		public Env visit(Decr p, Env env) throws TypeException {
+		public Stmt visit(Decr p, Env env) throws TypeException {
 			Tuple<src.Absyn.Type, Boolean> t = env.lookupVar(p.ident_);
 			if (t.x.equals(new Doub()) || t.x.equals(new Int())) {
-				return env;
+				//TODO: Need type information here I guess???
+				return p;
 			}
 			throw new TypeException("Can only increment int or double");
 		}
 
 		@Override
-		public Env visit(Ret p, Env env) throws TypeException {
+		public Stmt visit(Ret p, Env env) throws TypeException {
 			Tuple<Type, TypedE> retTuple = p.expr_.accept(new InferExprType(), env);
 			Type t = retTuple.x;
+			TypedE typedExpr = retTuple.y;
 			String currentFunId = env.currentSignature;
 			Type funType = env.lookupFun(currentFunId).val;
 			if (!t.equals(funType)) {
 				throw new TypeException("Function of type " + funType.toString() + " cannot return value of type " + t.toString());
 			}
-			return env;
+			return new Ret(typedExpr);
 		}
 
 		@Override
-		public Env visit(VRet p, Env env) throws TypeException {
+		public Stmt visit(VRet p, Env env) throws TypeException {
 			String currentFunId = env.currentSignature;
 			
 			Type funType = env.lookupFun(currentFunId).val;
 			if (!funType.equals(new Void())) {
 				throw new TypeException("Function of type " + funType.toString() + " has to return a value of that type");
 			}
-			return env;
+			return p;
 		}
 
 		@Override
-		public Env visit(Cond p, Env env) throws TypeException {
+		public Stmt visit(Cond p, Env env) throws TypeException {
 			Tuple<Type, TypedE> condTuple = p.expr_.accept(new InferExprType(), env);
 			Type t = condTuple.x;
+			TypedE typedExpr = condTuple.y;
 			if (t.equals(new Bool())) {
-				p.stmt_.accept(this, env);
-				return env;
+				Stmt typedStmt = p.stmt_.accept(this, env);
+				return new Cond(typedExpr, typedStmt);
 			}
 			throw new TypeException("Conditional expression has to be of type bool");
 		}
 
 		@Override
-		public Env visit(CondElse p, Env env) throws TypeException {
+		public Stmt visit(CondElse p, Env env) throws TypeException {
 			Tuple<Type, TypedE> elseTuple = p.expr_.accept(new InferExprType(), env);
 			Type t = elseTuple.x;
+			TypedE typedExpr = elseTuple.y;
 			if (t.equals(new Bool())) {
-				p.stmt_1.accept(this, env);
-				p.stmt_2.accept(this, env);
-				return env;
+				Stmt typedStmt1 = p.stmt_1.accept(this, env);
+				Stmt typedStmt2 = p.stmt_2.accept(this, env);
+				return new CondElse(typedExpr, typedStmt1, typedStmt2);
 			}
 			throw new TypeException("Conditional expression has to be of type bool");
 		}
 
 		@Override
-		public Env visit(While p, Env env) throws TypeException {
+		public Stmt visit(While p, Env env) throws TypeException {
 			Tuple<Type, TypedE> exprTuple = p.expr_.accept(new InferExprType(), env);
 			Type exprType = exprTuple.x;
+			TypedE typedExpr = exprTuple.y;
 			if (exprType.equals(new Bool())) {
-				p.stmt_.accept(this, env);
-				return env;
+				Stmt typedStmt = p.stmt_.accept(this, env);
+				return new While(typedExpr, typedStmt);
 			}
 			throw new TypeException("Conditional expression has to be of type bool");
 		}
 
 		@Override
-		public Env visit(SExp p, Env env) throws TypeException {
+		public Stmt visit(SExp p, Env env) throws TypeException {
 			if (!p.expr_.accept(new NakedExpr(), env)) {
 				throw new TypeException("Naked expression on top level");
 			}
-			p.expr_.accept(new InferExprType(), env);
-			return env;
+			Tuple<Type, TypedE> expTuple = p.expr_.accept(new InferExprType(), env);
+			TypedE typedExp = expTuple.y;
+			return new SExp(typedExp);
 		}
 		
 	}
