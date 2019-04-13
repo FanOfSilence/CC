@@ -158,7 +158,8 @@ public class TypeChecker {
 
 		@Override
 		public Triple<String, src.Absyn.Type, Boolean> visit(Init p, Env env) throws TypeException {
-			Type t = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> initTuple = p.expr_.accept(new InferExprType(), env);
+			Type t = initTuple.x;
 			Triple<String, Type, Boolean> retTriple = new Triple<String, Type, Boolean>(p.ident_, t, true);
 			return retTriple;
 		}
@@ -202,7 +203,8 @@ public class TypeChecker {
 				throw new TypeException("Can't assign to var " + p.ident_ + " that has not been declared");
 			}
 			Type varType = varTuple.x;
-			Type exprType = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> assignmentTuple = p.expr_.accept(new InferExprType(), env);
+			Type exprType = assignmentTuple.x;
 			if (exprType.equals(varType)) {
 				env.updateVar(p.ident_);
 				return env;
@@ -230,7 +232,8 @@ public class TypeChecker {
 
 		@Override
 		public Env visit(Ret p, Env env) throws TypeException {
-			Type t = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> retTuple = p.expr_.accept(new InferExprType(), env);
+			Type t = retTuple.x;
 			String currentFunId = env.currentSignature;
 			Type funType = env.lookupFun(currentFunId).val;
 			if (!t.equals(funType)) {
@@ -252,7 +255,8 @@ public class TypeChecker {
 
 		@Override
 		public Env visit(Cond p, Env env) throws TypeException {
-			Type t = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> condTuple = p.expr_.accept(new InferExprType(), env);
+			Type t = condTuple.x;
 			if (t.equals(new Bool())) {
 				p.stmt_.accept(this, env);
 				return env;
@@ -262,7 +266,8 @@ public class TypeChecker {
 
 		@Override
 		public Env visit(CondElse p, Env env) throws TypeException {
-			Type t = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> elseTuple = p.expr_.accept(new InferExprType(), env);
+			Type t = elseTuple.x;
 			if (t.equals(new Bool())) {
 				p.stmt_1.accept(this, env);
 				p.stmt_2.accept(this, env);
@@ -273,7 +278,8 @@ public class TypeChecker {
 
 		@Override
 		public Env visit(While p, Env env) throws TypeException {
-			Type exprType = p.expr_.accept(new InferExprType(), env);
+			Tuple<Type, TypedE> exprTuple = p.expr_.accept(new InferExprType(), env);
+			Type exprType = exprTuple.x;
 			if (exprType.equals(new Bool())) {
 				p.stmt_.accept(this, env);
 				return env;
@@ -293,46 +299,50 @@ public class TypeChecker {
 	}
 	
 	// Infer the type of an expression and through the types of its subexpressions
-	public class InferExprType implements Expr.Visitor<Type, Env>  {
+	public class InferExprType implements Expr.Visitor<Tuple<Type, TypedE>, Env>  {
 
 		@Override
-		public Type visit(EVar p, Env env) throws TypeException {
+		public Tuple<Type, TypedE> visit(EVar p, Env env) throws TypeException {
 			Tuple<Type, Boolean> varTuple = env.lookupVar(p.ident_);
-			if (!varTuple.y) {
+			Type varType = varTuple.x;
+			Boolean initialized = varTuple.y;
+			if (!initialized) {
 				throw new TypeException("Variable " + p.ident_ + " not initialized before being used in expression");
 			}
-			return varTuple.x;
+			return new Tuple<Type, TypedE>(varType, new TypedE(varType, p));
 		}
 
 		@Override
-		public Type visit(ELitInt p, Env env) {
-			return new Int();
+		public Tuple<Type, TypedE> visit(ELitInt p, Env env) {
+			return new Tuple<Type, TypedE>(new Int(), new TypedE(new Int(), p));
 		}
 
 		@Override
-		public Type visit(ELitDoub p, Env env) {
-			return new Doub();
+		public Tuple<Type, TypedE> visit(ELitDoub p, Env env) {
+			return new Tuple<Type, TypedE>(new Doub(), new TypedE(new Doub(), p));
 		}
 
 		@Override
-		public Type visit(ELitTrue p, Env env) {
-			return new Bool();
+		public Tuple<Type, TypedE> visit(ELitTrue p, Env env) {
+			return new Tuple<Type, TypedE>(new Bool(), new TypedE(new Bool(), p));
 		}
 
 		@Override
-		public Type visit(ELitFalse p, Env env) {
-			return new Bool();
+		public Tuple<Type, TypedE> visit(ELitFalse p, Env env) {
+			return new Tuple<Type, TypedE>(new Bool(), new TypedE(new Bool(), p));
 		}
 
 		@Override
-		public Type visit(EApp p, Env env) throws TypeException {
+		public Tuple<Type, TypedE> visit(EApp p, Env env) throws TypeException {
 			FunType f = env.lookupFun(p.ident_);
 			if (f == null) {
 				throw new TypeException("Function of name " + p.ident_ + " is used but it's not defined");
 			}
+			ListExpr listTypedE = new ListExpr();
 			for (int i = 0; i < p.listexpr_.size(); i++) {
 				Expr e = p.listexpr_.get(i);
-				Type argumentType = e.accept(this, env);
+				Tuple<Type, TypedE> argumentTuple = e.accept(this, env);
+				Type argumentType = argumentTuple.x;
 				if (i >= f.args.size()) {
 					throw new TypeException("Function " + p.ident_ + " cannot be applied with " + p.listexpr_.size() + " arguments");
 				}
@@ -343,46 +353,51 @@ public class TypeChecker {
 					throw new TypeException("Parameter " + parameterName + " of function " + p.ident_+ " is of type " + parameterType.toString()
 					 + " while argument is of type " + argumentType.toString());
 				}
+				TypedE argumentTypedE = argumentTuple.y;
+				listTypedE.add(argumentTypedE);
 			}
 			if (p.listexpr_.size() != f.args.size()) {
 				throw new TypeException("Function " + p.ident_ + " is being applied with " + p.listexpr_.size() + " args while the functions has " + f.args.size() + " parameters");
 			}
-			return f.val;
+			return new Tuple<Type, TypedE>(f.val, new TypedE(f.val, new EApp(p.ident_, listTypedE)));
 		}
 
 		@Override
-		public Type visit(EString p, Env env) {
-			return new StringLit();
+		public Tuple<Type, TypedE> visit(EString p, Env env) {
+			return new Tuple<Type, TypedE>(new StringLit(), new TypedE(new StringLit(), p));
 		}
 
 		@Override
-		public Type visit(Neg p, Env arg) throws TypeException {
-			Type t = p.expr_.accept(this, arg);
+		public Tuple<Type, TypedE> visit(Neg p, Env arg) throws TypeException {
+			Tuple<Type, TypedE> negTuple = p.expr_.accept(this, arg);
+			Type t = negTuple.x;
+			TypedE typedExpr = negTuple.y;
 			if (t.equals(new Doub()) || t.equals(new Int())) {
-				return t;
+				return new Tuple<Type, TypedE>(t, new TypedE(t, p /*typedExpr*/));
 			}
 			throw new TypeException("Operand to - must be int our double");
-			
 		}
 
 		@Override
-		public Type visit(Not p, Env env) throws TypeException {
-			Type t = p.expr_.accept(this, env);
+		public Tuple<Type, TypedE> visit(Not p, Env env) throws TypeException {
+			Tuple<Type, TypedE> notTuple = p.expr_.accept(this, env);
+			Type t = notTuple.x;
+			TypedE typedExpr = notTuple.y;
 			if (t.equals(new Bool())) {
-				return t;
+				return new Tuple<Type, TypedE>(t, new TypedE(t, typedExpr));
 			}
 			throw new TypeException("Operand to ! must be boolean");
 		}
 
 		@Override
-		public Type visit(EMul p, Env env) throws TypeException {
-			Type t1 = p.expr_1.accept(this, env);
-			Type t2 = p.expr_2.accept(this, env);
+		public Tuple<Type, TypedE> visit(EMul p, Env env) throws TypeException {
+			Tuple<Type, TypedE> mulTuple1 = p.expr_1.accept(this, env);
+			Tuple<Type, TypedE> mulTuple2 = p.expr_2.accept(this, env);
+			Type t1 = mulTuple1.x;
+			Type t2 = mulTuple2.x;
 			if (t1.equals(t2)) {
-				if (t1.equals(new Int())) {
-					return new Int();
-				} else if (t1.equals(new Doub())) {
-					return new Doub();
+				if (t1.equals(new Int()) || t1.equals(new Doub())) {
+					return new Tuple<Type, TypedE>(t1, new TypedE(t1, p));
 				}
 				throw new TypeException("Operands to * must be int or double");
 			}
@@ -390,54 +405,59 @@ public class TypeChecker {
 		}
 
 		@Override
-		public Type visit(EAdd p, Env env) throws TypeException {
-			Type t1 = p.expr_1.accept(this, env);
-			Type t2 = p.expr_2.accept(this, env);
+		public Tuple<Type, TypedE> visit(EAdd p, Env env) throws TypeException {
+			Tuple<Type, TypedE> addTuple1 = p.expr_1.accept(this, env);
+			Tuple<Type, TypedE> addTuple2 = p.expr_2.accept(this, env);
+			Type t1 = addTuple1.x;
+			Type t2 = addTuple2.x;
 			if (t1.equals(t2)) {
-				if (t1.equals(new Int())) {
-					return new Int();
-				} else if (t1.equals(new Doub())) {
-					return new Doub();
+				if (t1.equals(new Int()) || t1.equals(new Doub())) {
+					return new Tuple<Type, TypedE>(t1, new TypedE(t1, p));
 				}
-				throw new TypeException("Operands to + must be int or double");
+				throw new TypeException("Operands to addition operation must be int or double");
 			}
-			throw new TypeException("Operands to + must be of the same type");
+			throw new TypeException("Operands to addition operation must be of the same type");
 		}
 
 		@Override
-		public Type visit(ERel p, Env env) throws TypeException {
-			Type t1 = p.expr_1.accept(this, env);
-			Type t2 = p.expr_2.accept(this, env);
+		public Tuple<Type, TypedE> visit(ERel p, Env env) throws TypeException {
+			Tuple<Type, TypedE> relTuple1 = p.expr_1.accept(this, env);
+			Tuple<Type, TypedE> relTuple2 = p.expr_2.accept(this, env);
+			Type t1 = relTuple1.x;
+			Type t2 = relTuple2.x;
 			if (t1.equals(t2)) {
-				return new Bool();
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
 			}
 			throw new TypeException("Operands in relational expression must be of the same type");
 		}
 
 		@Override
-		public Type visit(EAnd p, Env env) throws TypeException {
-			Type t1 = p.expr_1.accept(this, env);
-			Type t2 = p.expr_2.accept(this, env);
+		public Tuple<Type, TypedE> visit(EAnd p, Env env) throws TypeException {
+			Tuple<Type, TypedE> andTuple1 = p.expr_1.accept(this, env);
+			Tuple<Type, TypedE> andTuple2 = p.expr_2.accept(this, env);
+			Type t1 = andTuple1.x;
+			Type t2 = andTuple2.x;
 			if (t1.equals(new Bool()) && t2.equals(new Bool())) {
-				return new Bool();
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
 			}
 			throw new TypeException("Operands to && must be boolean");
 		}
 
 		@Override
-		public Type visit(EOr p, Env env) throws TypeException {
-			Type t1 = p.expr_1.accept(this, env);
-			Type t2 = p.expr_2.accept(this, env);
+		public Tuple<Type, TypedE> visit(EOr p, Env env) throws TypeException {
+			Tuple<Type, TypedE> andTuple1 = p.expr_1.accept(this, env);
+			Tuple<Type, TypedE> andTuple2 = p.expr_2.accept(this, env);
+			Type t1 = andTuple1.x;
+			Type t2 = andTuple2.x;
 			if (t1.equals(new Bool()) && t2.equals(new Bool())) {
-				return new Bool();
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
 			}
-			throw new TypeException("Operands to && must be boolean");
+			throw new TypeException("Operands to || must be boolean");
 		}
 
 		@Override
-		public Type visit(TypedE p, Env arg) throws TypeException {
-			// TypedE is internal so not this code won't be called
-			return null;
+		public Tuple<Type, TypedE> visit(TypedE p, Env arg) throws TypeException {
+			throw new TypeException("Wasn't expecting typed expression");
 		}
 	}
 	
