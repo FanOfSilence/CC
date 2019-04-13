@@ -406,9 +406,11 @@ public class TypeChecker {
 			Tuple<Type, TypedE> mulTuple2 = p.expr_2.accept(this, env);
 			Type t1 = mulTuple1.x;
 			Type t2 = mulTuple2.x;
+			TypedE tE1 = mulTuple1.y;
+			TypedE tE2 = mulTuple2.y;
 			if (t1.equals(t2)) {
 				if (t1.equals(new Int()) || t1.equals(new Doub())) {
-					return new Tuple<Type, TypedE>(t1, new TypedE(t1, p));
+					return new Tuple<Type, TypedE>(t1, new TypedE(t1, new EMul(tE1, p.mulop_, tE2)));
 				}
 				throw new TypeException("Operands to * must be int or double");
 			}
@@ -421,9 +423,11 @@ public class TypeChecker {
 			Tuple<Type, TypedE> addTuple2 = p.expr_2.accept(this, env);
 			Type t1 = addTuple1.x;
 			Type t2 = addTuple2.x;
+			TypedE tE1 = addTuple1.y;
+			TypedE tE2 = addTuple2.y;
 			if (t1.equals(t2)) {
 				if (t1.equals(new Int()) || t1.equals(new Doub())) {
-					return new Tuple<Type, TypedE>(t1, new TypedE(t1, p));
+					return new Tuple<Type, TypedE>(t1, new TypedE(t1, new EAdd(tE1, p.addop_, tE2)));
 				}
 				throw new TypeException("Operands to addition operation must be int or double");
 			}
@@ -436,8 +440,10 @@ public class TypeChecker {
 			Tuple<Type, TypedE> relTuple2 = p.expr_2.accept(this, env);
 			Type t1 = relTuple1.x;
 			Type t2 = relTuple2.x;
+			TypedE tE1 = relTuple1.y;
+			TypedE tE2 = relTuple2.y;
 			if (t1.equals(t2)) {
-				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(new Bool(), new ERel(tE1, p.relop_, tE2)));
 			}
 			throw new TypeException("Operands in relational expression must be of the same type");
 		}
@@ -448,8 +454,10 @@ public class TypeChecker {
 			Tuple<Type, TypedE> andTuple2 = p.expr_2.accept(this, env);
 			Type t1 = andTuple1.x;
 			Type t2 = andTuple2.x;
+			TypedE tE1 = andTuple1.y;
+			TypedE tE2 = andTuple2.y;
 			if (t1.equals(new Bool()) && t2.equals(new Bool())) {
-				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(new Bool(), new EAnd(tE1, tE2)));
 			}
 			throw new TypeException("Operands to && must be boolean");
 		}
@@ -460,8 +468,10 @@ public class TypeChecker {
 			Tuple<Type, TypedE> andTuple2 = p.expr_2.accept(this, env);
 			Type t1 = andTuple1.x;
 			Type t2 = andTuple2.x;
+			TypedE tE1 = andTuple1.y;
+			TypedE tE2 = andTuple2.y;
 			if (t1.equals(new Bool()) && t2.equals(new Bool())) {
-				return new Tuple<Type, TypedE>(new Bool(), new TypedE(t1, p));
+				return new Tuple<Type, TypedE>(new Bool(), new TypedE(new Bool(), new EOr(tE1, tE2)));
 			}
 			throw new TypeException("Operands to || must be boolean");
 		}
