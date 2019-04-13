@@ -724,6 +724,14 @@ public class PrettyPrinter
        pp(_eor.expr_2, 0);
        if (_i_ > 0) render(_R_PAREN);
     }
+    else     if (foo instanceof src.Absyn.TypedE)
+    {
+       src.Absyn.TypedE _typede = (src.Absyn.TypedE) foo;
+       if (_i_ > 0) render(_L_PAREN);
+       pp(_typede.type_, 0);
+       pp(_typede.expr_, 0);
+       if (_i_ > 0) render(_R_PAREN);
+    }
   }
 
   private static void pp(src.Absyn.ListExpr foo, int _i_)
@@ -1211,6 +1219,15 @@ public class PrettyPrinter
        render("EOr");
        sh(_eor.expr_1);
        sh(_eor.expr_2);
+       render(")");
+    }
+    if (foo instanceof src.Absyn.TypedE)
+    {
+       src.Absyn.TypedE _typede = (src.Absyn.TypedE) foo;
+       render("(");
+       render("TypedE");
+       sh(_typede.type_);
+       sh(_typede.expr_);
        render(")");
     }
   }

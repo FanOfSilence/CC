@@ -289,4 +289,10 @@ public class ComposVisitor<A> implements src.Absyn.Prog.Visitor<src.Absyn.Prog, 
 	public RelOp visit(src.Absyn.NE p, A arg) {
 		return new src.Absyn.NE();
 	}
+
+	@Override
+	public Expr visit(TypedE p, A arg) throws TypeException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

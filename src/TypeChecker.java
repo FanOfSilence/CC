@@ -433,6 +433,12 @@ public class TypeChecker {
 			}
 			throw new TypeException("Operands to && must be boolean");
 		}
+
+		@Override
+		public Type visit(TypedE p, Env arg) throws TypeException {
+			// TypedE is internal so not this code won't be called
+			return null;
+		}
 	}
 	
 	// Makes sure that there are no illegal expressions on statement level
@@ -506,6 +512,12 @@ public class TypeChecker {
 		@Override
 		public Boolean visit(EOr p, Env arg) throws TypeException {
 			return false;
+		}
+
+		@Override
+		public Boolean visit(TypedE p, Env arg) throws TypeException {
+			// TypedE is internal so not this code won't be called
+			return null;
 		}
 		
 	}
@@ -703,6 +715,12 @@ public class TypeChecker {
 			} else {
 				return p.expr_2.accept(this, arg);
 			}
+		}
+
+		@Override
+		public Double visit(TypedE p, Env arg) throws TypeException {
+			// TypedE is internal so not this code won't be called
+			return null;
 		}
 		
 	}

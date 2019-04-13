@@ -19,6 +19,7 @@ public abstract class Expr implements java.io.Serializable {
     public R visit(src.Absyn.ERel p, A arg) throws TypeException;
     public R visit(src.Absyn.EAnd p, A arg) throws TypeException;
     public R visit(src.Absyn.EOr p, A arg) throws TypeException;
+    public R visit(src.Absyn.TypedE p, A arg) throws TypeException;
 
   }
 
