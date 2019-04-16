@@ -47,6 +47,10 @@ public class jlc
       System.out.println();
       System.out.println(PrettyPrinter.show(typedParseTree));
       System.err.println("OK");
+      LLVMCodeGenerator codeGenerator = new LLVMCodeGenerator();
+      LLVMCodeGenerator.ProgVisitor outputProg = codeGenerator.new ProgVisitor();
+      String outputtedString = typedParseTree.accept(outputProg, null);
+      System.out.print(outputtedString);
     }
     catch (TypeException t) {
     	t.printStackTrace();
