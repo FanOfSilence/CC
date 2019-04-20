@@ -874,14 +874,7 @@ class Env {
 
 // Classes for creating tuples
 
-class Tuple<X, Y> { 
-	public final X x; 
-	public final Y y; 
-	public Tuple(X x, Y y) { 
-		this.x = x; 
-		this.y = y; 
-	} 
-}
+
 
 class Triple<X, Y, Z> { 
 	public final X x; 
