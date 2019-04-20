@@ -1,0 +1,34 @@
+
+// What to do here?
+// Blocks without return have to jump out of their block
+// Blocks with a return take care of themselves
+// Who should keep track of the labels?
+// BStmt could send in a label to a block but how will it know that it is used?
+// Option 1: BStmt creates a new label and stores it for the context. Use TypeChecker to see that the block returns in all paths
+// Option 2: Update context to say if the label was used.
+int main() {
+    if (1 == 1) {
+       printInt(1);
+    }
+    if (1 == 2) {
+       if (3 == 4) {
+       	  printInt(x);
+       }
+    }
+    if (1 == 2) {
+       return 1;
+    }
+    {
+	printInt(1);
+    }
+    return 2;
+}
+
+
+//TODO1: First pass to add all global variables (the strings)
+//TODO2: Give each new block an option to branch to a label
+//TODO3: Make sure that every function has a return
+//TODO4: Probably have to branch on empty statement as well
+//TODO5: Do alpha renaming so that all testcases can pass. Only variables (not functions) need to be renamed but make sure they are renamed globally and not just per function
+//TODO6: Implement missing expressions correctly
+//TODO7: Find a way to do lazy evaluation of || and &&
