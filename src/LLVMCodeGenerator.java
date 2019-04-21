@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
 
 import src.Absyn.*;
 import src.Absyn.Void;
@@ -18,8 +19,12 @@ public class LLVMCodeGenerator {
 			return "i32";
 		} else if (t.equals(new Doub())) {
 			return "d32";
-		} else { // bool
+		} else if (t.equals(new Bool())){
 			return "i1";
+		} else if (t.equals(new StringLit())) { // StringLit
+			return "i8*";
+		} else {
+			return "void";
 		}
 	}
 	
@@ -106,7 +111,10 @@ public class LLVMCodeGenerator {
 	}
 	
 	private String call(LLVMFunType fun, List<String> arguments) {
-		String callInstruction = "\ncall " + "void" + fun.name + "(" + getLLVMTypeFromType(fun.argTypes.get(0)) + arguments.get(0);
+		String callInstruction = "\ncall " + spR(getLLVMTypeFromType(fun.type)) + fun.name + "(";
+		if (!fun.argTypes.isEmpty()) {
+			callInstruction += getLLVMTypeFromType(fun.argTypes.get(0)) + spL(arguments.get(0));
+		}
 		for (int i = 1; i < arguments.size(); i++) {
 			callInstruction += " ,";
 			callInstruction += spR(getLLVMTypeFromType(fun.argTypes.get(i)));
@@ -148,6 +156,15 @@ public class LLVMCodeGenerator {
 			env.funTypes.put(printInt, new LLVMFunType(llvmPrintInt, argumentTypes, returnType));
 			
 			outputString.append("declare void @printInt(i32 %n)\n");
+
+			String printString = "printString";
+			String llvmPrintString = "@" + printString;
+			List<Type> argumentTypesString = new ArrayList<Type>();
+			argumentTypesString.add(new StringLit());
+			env.funTypes.put(printString, new LLVMFunType(llvmPrintString, argumentTypesString, returnType));
+			
+			outputString.append("declare void @printString(i8* %n)\n");
+			
 			
 			for (TopDef topDef : p.listtopdef_) {
 				topDef.accept(new AddTopDef(), arg);
@@ -170,7 +187,6 @@ public class LLVMCodeGenerator {
 				types.add(argument.accept(new ArgumentType(), arg));
 			}
 			Type returnType = p.type_;
-			System.out.print("Adding " + name);
 			env.funTypes.put(name, new LLVMFunType(llvmName, types, returnType));
 			return null;
 		}
@@ -215,6 +231,8 @@ public class LLVMCodeGenerator {
 				outputString.append(", " + spR(argType) + argName);
 			}
 			outputString.append(") {");
+			newLine();
+			outputString.append("entry:\n");
 			Boolean blkReturns = p.blk_.accept(new OutputBlk(), null);
 			if (!blkReturns) {
 				newLine();
@@ -288,9 +306,7 @@ public class LLVMCodeGenerator {
 		@Override
 		public Boolean visit(BStmt p, String label) throws TypeException {
 			Boolean returns = p.blk_.accept(new OutputBlk(), label);
-			System.out.println("Returns " + returns);
-			if (!returns) {
-				System.out.println(label);
+			if (!returns && label != null) {
 				outputString.append(br1(label));
 			}
 			return returns;
@@ -364,16 +380,19 @@ public class LLVMCodeGenerator {
 		@Override
 		public Boolean visit(Cond p, String label) throws TypeException {
 			newLine();
-			p.expr_.accept(new OutputExpr(), null);
-			newLine();
-			newLine();
+			String expr = p.expr_.accept(new OutputExpr(), null);
 			String trueLabel = newLabel();
 			String endLabel = newLabel();
+			String brInstruction = br2(expr, trueLabel, endLabel);
+			outputString.append(brInstruction);
+			newLine();
 			outputString.append("; trueLabel");
 			newLine();
 			outputString.append(trueLabel + ":");
 			newLine();
 			Boolean returns = p.stmt_.accept(this, endLabel);
+			newLine();
+			outputString.append("; endLabel");
 			newLine();
 			outputString.append(endLabel + ":");
 			return returns;
@@ -383,7 +402,6 @@ public class LLVMCodeGenerator {
 		public Boolean visit(CondElse p, String label) throws TypeException {
 			newLine();
 			String expr = p.expr_.accept(new OutputExpr(), null);
-			System.out.print(expr.toString());
 			String trueLabel = newLabel();
 			String falseLabel = newLabel();
 			String endLabel = newLabel();
@@ -414,9 +432,25 @@ public class LLVMCodeGenerator {
 		@Override
 		public Boolean visit(While p, String label) throws TypeException {
 			newLine();
-			p.expr_.accept(new OutputExpr(), null);
-			// TODO Auto-generated method stub
-			return null;
+			String expr = p.expr_.accept(new OutputExpr(), null);
+			String trueLabel = newLabel();
+			String endLabel = newLabel();
+			String brInstruction = br2(expr, trueLabel, endLabel);
+			outputString.append(brInstruction);
+			newLine();
+			outputString.append("; trueLabel");
+			newLine();
+			outputString.append(trueLabel + ":");
+			Boolean returns = p.stmt_.accept(this, null);
+			newLine();
+			String newExpr = p.expr_.accept(new OutputExpr(), null);
+			String brInstruction2 = br2(newExpr, trueLabel, endLabel);
+			outputString.append(brInstruction2);
+			newLine();
+			outputString.append("; endLabel");
+			newLine();
+			outputString.append(endLabel + ":");
+			return returns;
 		}
 
 		@Override
@@ -465,7 +499,6 @@ public class LLVMCodeGenerator {
 		@Override
 		public String visit(EApp p, Type arg) throws TypeException {
 			LLVMFunType function = env.funTypes.get(p.ident_);
-			System.out.println("\n"+p.ident_);
 			List<String> exprs = new ArrayList<String>();
 			for (Expr expr : p.listexpr_) {
 				exprs.add(expr.accept(this, arg));
@@ -480,7 +513,8 @@ public class LLVMCodeGenerator {
 			// TODO: read variable name
 			// Add string to beginning
 			String varName = "@string";
-			outputString.insert(0, "\n" + varName + " = internal constant + [" + p.string_.length() + 2 + " x i8] c\"" + p.string_ + "\\A0\\00\"" + "\n");
+			int stringLength = p.string_.length() + 2;
+			outputString.insert(0, "\n" + varName + " = internal constant [" + stringLength + " x i8] c\"" + p.string_ + "\\A0\\00\"" + "\n");
 			//TODO: add in call?
 			return varName;
 		}

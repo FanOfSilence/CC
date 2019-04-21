@@ -6,7 +6,7 @@ even: runtime.ll even.ll
 sum: runtime.ll sum.ll
 	llvm-link runtime.ll sum.ll -o out.bc
 	llc out.bc -o out.s
-	gcc out.s -o sum
+	gcc out.s -no-pie -o sum
 	$(RM) out.bc out.s
 test: runtime.ll test.ll
 	llvm-link runtime.ll test.ll -o out.bc
