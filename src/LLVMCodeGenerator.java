@@ -267,6 +267,8 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(NoInit p, Type t) {
+			env.varTypes.put(p.ident_, t);
+			
 			String pointerName = javaletteVarToPointer(p.ident_);
 
 			newLine();
@@ -283,6 +285,8 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(Init p, Type t) throws TypeException {
+			env.varTypes.put(p.ident_, t);
+			
 			String pointerName = javaletteVarToPointer(p.ident_);
 			String expression = p.expr_.accept(new OutputExpr(), null);
 			
@@ -358,26 +362,39 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public Boolean visit(Incr p, String label) throws TypeException {
-			//TODO: read type from env
+			Type t = env.varTypes.get(p.ident_);
 			String pointer = javaletteVarToPointer(p.ident_);
-			Tuple<String, String> loadTuple = load(new Int(), pointer);
+			Tuple<String, String> loadTuple = load(t, pointer);
 			String loadVar = loadTuple.x;
 			String loadInstruction = loadTuple.y;
 			outputString.append(loadInstruction);
 			
-			Tuple<String, String> addTuple = addMul(new Int(), loadVar, "1", "add");
+			Tuple<String, String> addTuple = addMul(t, loadVar, "1", "add");
 			String addInstruction = addTuple.y;
 			String addVar = addTuple.x;
 			outputString.append(addInstruction);
 			
-			String storeInstruction = store(new Int(), addVar, pointer);
+			String storeInstruction = store(t, addVar, pointer);
 			outputString.append(storeInstruction);
 			return false;
 		}
 
 		@Override
 		public Boolean visit(Decr p, String label) throws TypeException {
-			// TODO Auto-generated method stub
+			Type t = env.varTypes.get(p.ident_);
+			String pointer = javaletteVarToPointer(p.ident_);
+			Tuple<String, String> loadTuple = load(t, pointer);
+			String loadVar = loadTuple.x;
+			String loadInstruction = loadTuple.y;
+			outputString.append(loadInstruction);
+			
+			Tuple<String, String> addTuple = addMul(t, loadVar, "1", "sub");
+			String addInstruction = addTuple.y;
+			String addVar = addTuple.x;
+			outputString.append(addInstruction);
+			
+			String storeInstruction = store(t, addVar, pointer);
+			outputString.append(storeInstruction);
 			return false;
 		}
 
@@ -433,7 +450,6 @@ public class LLVMCodeGenerator {
 			outputString.append(trueLabel + ":");
 			newLine();
 			Boolean firstReturns = p.stmt_1.accept(this, endLabel);
-			newLine();
 			newLine();
 			outputString.append("; falseLabel");
 			newLine();
@@ -528,7 +544,7 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(EString p, Type arg) {
-			// Add string to beginning
+			// Add string to beginning of outputString
 			String varName = newGlobalVar();
 			int stringLength = p.string_.length() + 2;
 			outputString.insert(0, "\n" + varName + " = internal constant [" + stringLength + " x i8] c\"" + p.string_ + "\\A0\\00\"" + "\n");
@@ -541,7 +557,7 @@ public class LLVMCodeGenerator {
 		public String visit(Neg p, Type t) throws TypeException {
 			String var = p.expr_.accept(this, t);
 			String typeString = getLLVMTypeFromType(t);
-			String negVar = var + "_n";
+			String negVar = newLocalVar();
 			outputString.append(negVar + " = sub " + typeString + " 0, " + var);
 			return negVar;
 		}
@@ -559,7 +575,8 @@ public class LLVMCodeGenerator {
 			String op1 = p.expr_1.accept(this, t);
 			String op2 = p.expr_2.accept(this, t);
 			String varName = newLocalVar();
-			String mulOp = p.mulop_.accept(new MulExpr(), null);
+			Type type = p.expr_1.accept(new ExprTypeVisitor(), null);
+			String mulOp = p.mulop_.accept(new MulExpr(), type);
 			outputString.append(varName + " = " + sp(spR(mulOp) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2);
 			return varName;
 		}
@@ -569,7 +586,8 @@ public class LLVMCodeGenerator {
 			String op1 = p.expr_1.accept(this, t);
 			String op2 = p.expr_2.accept(this, t);
 			String varName = newLocalVar();
-			String addOp = p.addop_.accept(new AddExpr(), null);
+			Type type = p.expr_1.accept(new ExprTypeVisitor(), null);
+			String addOp = p.addop_.accept(new AddExpr(), type);
 			outputString.append(varName + " = " + sp(spR(addOp) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2);
 			return varName;
 		}
@@ -739,35 +757,68 @@ public class LLVMCodeGenerator {
 		
 	}
 	
-	public class AddExpr implements AddOp.Visitor<String, String> {
+	public class AddExpr implements AddOp.Visitor<String, Type> {
 
 		@Override
-		public String visit(Plus p, String arg) {
-			return "add";
-		}
-
-		@Override
-		public String visit(Minus p, String arg) {
-			return "sub";
-		}
-	}
-	
-	public class MulExpr implements MulOp.Visitor<String, String> {
-
-		@Override
-		public String visit(Times p, String arg) {
-			return "mul";
-		}
-
-		@Override
-		public String visit(Div p, String arg) {
-			// TODO Auto-generated method stub
+		public String visit(Plus p, Type t) {
+			if (t.equals(new Int())) {
+				return "add";
+			} else if (t.equals(new Doub())) {
+				return "fadd";
+			}
+			System.out.println("Unsupported type " + t.toString() + " for addition");
+			System.exit(1);
 			return null;
 		}
 
 		@Override
-		public String visit(Mod p, String arg) {
-			// TODO Auto-generated method stub
+		public String visit(Minus p, Type t) {
+			if (t.equals(new Int())) {
+				return "sub";
+			} else if (t.equals(new Doub())) {
+				return "fsub";
+			}
+			System.out.println("Unsupported type " + t.toString() + " for subtraction");
+			System.exit(1);
+			return null;
+		}
+	}
+	
+	public class MulExpr implements MulOp.Visitor<String, Type> {
+
+		@Override
+		public String visit(Times p, Type t) {
+			if (t.equals(new Int())) {
+				return "mul";
+			} else if (t.equals(new Doub())) {
+				return "fmul";
+			}
+			System.out.println("Unsupported type " + t.toString() + " for multiplication");
+			System.exit(1);
+			return null;
+		}
+
+		@Override
+		public String visit(Div p, Type t) {
+			if (t.equals(new Int())) {
+				return "sdiv";
+			} else if (t.equals(new Doub())) {
+				return "fdiv";
+			}
+			System.out.println("Unsupported type " + t.toString() + " for multiplication");
+			System.exit(1);
+			return null;
+		}
+
+		@Override
+		public String visit(Mod p, Type t) {
+			if (t.equals(new Int())) {
+				return "srem";
+			} else if (t.equals(new Doub())) {
+				return "frem";
+			}
+			System.out.println("Unsupported type " + t.toString() + " for multiplication");
+			System.exit(1);
 			return null;
 		}
 		
@@ -793,12 +844,14 @@ class LLVMEnv {
 	public HashMap<String, String> vars;
 	//Javalette function name, function type and arguments
 	public HashMap<String, LLVMFunType> funTypes;
+	public HashMap<String, Type> varTypes;
 	
 	public LLVMEnv() {
 //		signature = new HashMap<String, FunType>();
 		emptyEnv();
 		vars = new HashMap<String, String>();
 		funTypes = new HashMap<String, LLVMFunType>();
+		varTypes = new HashMap<String, Type>();
 	}
 	
 	private Tuple<Type, Boolean> lookupVarCurrentContext(String id) {

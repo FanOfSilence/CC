@@ -28,7 +28,9 @@ int main() {
 //TODO1: First pass to add all global variables (the strings). Probably not needed
 //TODO4: Probably have to branch on empty statement as well. Done
 //TODO5: Do alpha renaming so that all testcases can pass. Only variables (not functions) need to be renamed but make sure they are renamed globally and not just per function
+//TODO5.5: On that note, make sure it works correctly with parameters
 //TODO6: Implement missing expressions correctly
 //TODO7: Find a way to do lazy evaluation of || and &&
 //TODO9: In while statement how to update the expression? Probably solved
-//TODO10: Deal with types correctly (like float becomes double) and also special functions like fmul
+//TODO10: Deal with types correctly (like float becomes double) and also special functions like fmul. Done
+//TODO11: Types for variables need to be kept in map so that Inc and Decr can get the types (not a problem for epxressions because they are typed). Done
