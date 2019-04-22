@@ -25,11 +25,10 @@ int main() {
 }
 
 
-//TODO1: First pass to add all global variables (the strings)
-//TODO3: Make sure that every function has a return
-//TODO4: Probably have to branch on empty statement as well
+//TODO1: First pass to add all global variables (the strings). Probably not needed
+//TODO4: Probably have to branch on empty statement as well. Done
 //TODO5: Do alpha renaming so that all testcases can pass. Only variables (not functions) need to be renamed but make sure they are renamed globally and not just per function
 //TODO6: Implement missing expressions correctly
 //TODO7: Find a way to do lazy evaluation of || and &&
-//TODO8: Need to use  getelementpointer on Strings since the entire string is not a pointer
-//TODO9: In while statement how to update the expression?
+//TODO9: In while statement how to update the expression? Probably solved
+//TODO10: Deal with types correctly (like float becomes double) and also special functions like fmul

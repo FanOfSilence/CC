@@ -13,6 +13,7 @@ public class LLVMCodeGenerator {
 	private StringBuilder outputString;
 	private int label;
 	private int var;
+	private int globalVar;
 	private LLVMEnv env;
 	private String getLLVMTypeFromType(Type t) {
 		if (t.equals(new Int())) {
@@ -65,6 +66,11 @@ public class LLVMCodeGenerator {
 	private String newLocalVar() {
 		var++;
 		return "%var_" + var;
+	}
+	
+	private String newGlobalVar() {
+		globalVar++;
+		return "@globalVar_" + globalVar;
 	}
 	
 	private String newLocalPointer(String s) {
@@ -146,7 +152,9 @@ public class LLVMCodeGenerator {
 			outputString = new StringBuilder();
 			label = 0;
 			var = 0;
+			globalVar = 0;
 			env = new LLVMEnv();
+			
 			//Declare all functions available in linked file
 			String printInt = "printInt";
 			String llvmPrintInt = "@" + printInt;
@@ -154,7 +162,6 @@ public class LLVMCodeGenerator {
 			List<Type> argumentTypes = new ArrayList<Type>();
 			argumentTypes.add(new Int());
 			env.funTypes.put(printInt, new LLVMFunType(llvmPrintInt, argumentTypes, returnType));
-			
 			outputString.append("declare void @printInt(i32 %n)\n");
 
 			String printString = "printString";
@@ -162,8 +169,19 @@ public class LLVMCodeGenerator {
 			List<Type> argumentTypesString = new ArrayList<Type>();
 			argumentTypesString.add(new StringLit());
 			env.funTypes.put(printString, new LLVMFunType(llvmPrintString, argumentTypesString, returnType));
+			outputString.append("declare void @printString(i8* %s)\n");
 			
-			outputString.append("declare void @printString(i8* %n)\n");
+			String printDouble = "printDouble";
+			String llvmPrintDouble = "@" + printDouble;
+			List<Type> argumentTypesDouble = new ArrayList<Type>();
+			argumentTypesDouble.add(new Doub());
+			env.funTypes.put(printDouble, new LLVMFunType(llvmPrintDouble, argumentTypesDouble, returnType));
+			outputString.append("declare void @printDouble(double %d)\n");
+			
+			String readInt = "readInt";
+			String llvmReadInt = "@" + readInt;
+			env.funTypes.put(readInt, new LLVMFunType(llvmReadInt, new ArrayList<Type>(), new Int()));
+			outputString.append("declare i32 @readInt()\n");
 			
 			
 			for (TopDef topDef : p.listtopdef_) {
@@ -300,6 +318,8 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public Boolean visit(Empty p, String label) {
+			String brInstruction = br1(label);
+			outputString.append(brInstruction);
 			return false;
 		}
 
@@ -415,7 +435,6 @@ public class LLVMCodeGenerator {
 			Boolean firstReturns = p.stmt_1.accept(this, endLabel);
 			newLine();
 			newLine();
-			//TODO: need to jump somewhere here. but how does later statements know where I jumped?
 			outputString.append("; falseLabel");
 			newLine();
 			outputString.append(falseLabel + ":");
@@ -425,7 +444,6 @@ public class LLVMCodeGenerator {
 			outputString.append("; endLabel");
 			newLine();
 			outputString.append(endLabel + ":");
-			//TODO: and then jump (somewhere else) here
 			return firstReturns && secondReturns;
 		}
 
@@ -510,13 +528,13 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(EString p, Type arg) {
-			// TODO: read variable name
 			// Add string to beginning
-			String varName = "@string";
+			String varName = newGlobalVar();
 			int stringLength = p.string_.length() + 2;
 			outputString.insert(0, "\n" + varName + " = internal constant [" + stringLength + " x i8] c\"" + p.string_ + "\\A0\\00\"" + "\n");
-			//TODO: add in call?
-			return varName;
+			String localVar = newLocalVar();
+			outputString.append(localVar + " = getelementptr [" + stringLength + " x i8], [" + stringLength + " x i8]* " + varName + ", i32 0, i32 0");
+			return localVar;
 		}
 
 		@Override
@@ -540,7 +558,7 @@ public class LLVMCodeGenerator {
 		public String visit(EMul p, Type t) throws TypeException {
 			String op1 = p.expr_1.accept(this, t);
 			String op2 = p.expr_2.accept(this, t);
-			String varName = "%mulVar";
+			String varName = newLocalVar();
 			String mulOp = p.mulop_.accept(new MulExpr(), null);
 			outputString.append(varName + " = " + sp(spR(mulOp) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2);
 			return varName;
@@ -550,7 +568,7 @@ public class LLVMCodeGenerator {
 		public String visit(EAdd p, Type t) throws TypeException {
 			String op1 = p.expr_1.accept(this, t);
 			String op2 = p.expr_2.accept(this, t);
-			String varName = "%addVar";
+			String varName = newLocalVar();
 			String addOp = p.addop_.accept(new AddExpr(), null);
 			outputString.append(varName + " = " + sp(spR(addOp) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2);
 			return varName;
@@ -564,7 +582,7 @@ public class LLVMCodeGenerator {
 			String relOp = p.relop_.accept(new RelExpr(), null);
 			String cmp = getCmpFromType(type);
 			String typeString = getLLVMTypeFromType(type);
-			String relVar = "%relVar";
+			String relVar = newLocalVar();
 			newLine();
 			outputString.append(relVar + sp("=") + sp(cmp)+ sp(relOp) + sp(typeString) + sp(op1) + sp(",") + sp(op2));
 			newLine();
@@ -591,7 +609,6 @@ public class LLVMCodeGenerator {
 			newLine();
 //			outputString.append("br i1 " + op1 + ", " + "label " + trueLabel +", label %" + orElseLabel);
 			newLine();
-			newLine();
 //			outputString.append("; orElseLabel");
 			newLine();
 //			outputString.append(orElseLabel + ":");
@@ -613,85 +630,71 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public Type visit(EVar p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(ELitInt p, Int arg) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(ELitDoub p, Int arg) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(ELitTrue p, Int arg) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(ELitFalse p, Int arg) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EApp p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EString p, Int arg) {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(Neg p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(Not p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EMul p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EAdd p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(ERel p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EAnd p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
 		@Override
 		public Type visit(EOr p, Int arg) throws TypeException {
-			// TODO Auto-generated method stub
 			return null;
 		}
 
