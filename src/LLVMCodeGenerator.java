@@ -144,6 +144,11 @@ public class LLVMCodeGenerator {
 		return new Tuple<String, String>(varName, instruction);
 	}
 	
+	private Tuple<String, String> not(String expr) {
+		String var = newLocalVar();
+		return new Tuple<String, String>(var, var + " = xor i32 " + expr + ", -1");
+	}
+	
 	
 	public class ProgVisitor implements Prog.Visitor<String, String> {
 
@@ -558,16 +563,24 @@ public class LLVMCodeGenerator {
 			String var = p.expr_.accept(this, t);
 			String typeString = getLLVMTypeFromType(t);
 			String negVar = newLocalVar();
-			outputString.append(negVar + " = sub " + typeString + " 0, " + var);
+			String subOp = "sub";
+			if (t.equals(new Doub())) {
+				subOp = "fsub";
+			}
+			outputString.append(negVar + " = " + spR(subOp) + typeString + " 0, " + var);
 			return negVar;
 		}
 
 		@Override
 		public String visit(Not p, Type t) throws TypeException {
-			outputString.append(sp("!("));
-			p.expr_.accept(this, t);
-			outputString.append(sp(")"));
-			return null;
+			String expr = p.expr_.accept(this, t);
+			Tuple<String, String> notTuple = not(expr);
+			String varName = notTuple.x;
+			String notInstruction = notTuple.y;
+			newLine();
+			outputString.append(notInstruction);
+			newLine();
+			return varName;
 		}
 
 		@Override
@@ -604,7 +617,6 @@ public class LLVMCodeGenerator {
 			newLine();
 			outputString.append(relVar + sp("=") + sp(cmp)+ sp(relOp) + sp(typeString) + sp(op1) + sp(",") + sp(op2));
 			newLine();
-			
 			return relVar;
 		}
 
