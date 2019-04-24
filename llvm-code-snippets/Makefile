@@ -36,7 +36,7 @@ orAgain: runtime.ll orAgain.ll
 testProg: runtime.ll testProg.ll
 	llvm-link runtime.ll testProg.ll -o out.bc
 	llc out.bc -o out.s
-	gcc out.s -no-pie -o testProg
+	clang out.s -no-pie -o testProg
 	$(RM) out.bc out.s
 clean:
 	$(RM) even sum test newTest negTest orTest orAgain testProg

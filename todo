@@ -35,3 +35,5 @@ int main() {
 //TODO10: Deal with types correctly (like float becomes double) and also special functions like fmul. Done
 //TODO11: Types for variables need to be kept in map so that Inc and Decr can get the types (not a problem for epxressions because they are typed). Done
 //TODO12: Right version of icmp?
+//TODO13: Need lazy evaluation of expressions and need to branch to endLabel correctly
+//TODO14:Parameters to functions need to be put into pointers at entry of function

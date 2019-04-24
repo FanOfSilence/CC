@@ -20,7 +20,7 @@ public class TypeChecker {
 	// Top level visitor that adds the available functions, calls AddDefVisitor and TopDefVisitor, and makes sure int main() is defined
 	public class ProgVisitor implements Prog.Visitor<Prog, String> {
 		public Prog visit(src.Absyn.Program p, String arg) throws TypeException { /* Code For Program Goes Here */
-			System.out.println("Starting prog visitor");
+//			System.out.println("Starting prog visitor");
 			Env env = new Env();
 
 			String argumentName = "s";
@@ -116,7 +116,7 @@ public class TypeChecker {
 				try {
 					env.addVar(argName, argType, true);
 				} catch (TypeException e) {
-					System.out.println("Trying to add var for function " + env.currentSignature + " that has already been added");
+//					System.out.println("Trying to add var for function " + env.currentSignature + " that has already been added");
 				}
 			}
 			ListStmt listTypedStmt = new ListStmt();
@@ -657,7 +657,7 @@ public class TypeChecker {
 
 		@Override
 		public Double visit(EVar p, Env arg) throws TypeException {
-			System.out.println("Cannot evaluate variable");
+//			System.out.println("Cannot evaluate variable");
 			return null;
 		}
 
@@ -683,13 +683,13 @@ public class TypeChecker {
 
 		@Override
 		public Double visit(EApp p, Env arg) throws TypeException {
-			System.out.println("Cannot evaluate application");
+//			System.out.println("Cannot evaluate application");
 			return null;
 		}
 
 		@Override
 		public Double visit(EString p, Env arg) {
-			System.out.println("Cannot evaluate String");
+//			System.out.println("Cannot evaluate String");
 			return null;
 		}
 
@@ -716,19 +716,19 @@ public class TypeChecker {
 
 		@Override
 		public Double visit(EMul p, Env arg) throws TypeException {
-			System.out.println("Cannot evaluate EMul");
+//			System.out.println("Cannot evaluate EMul");
 			return null;
 		}
 
 		@Override
 		public Double visit(EAdd p, Env arg) throws TypeException {
-			System.out.println("Cannot evaluate EAdd");
+//			System.out.println("Cannot evaluate EAdd");
 			return null;
 		}
 
 		@Override
 		public Double visit(ERel p, Env arg) throws TypeException {
-			System.out.println("Cannot evaluate ERel");
+//			System.out.println("Cannot evaluate ERel");
 			return null;
 		}
 

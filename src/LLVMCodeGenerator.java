@@ -8,6 +8,9 @@ import java.util.Map.Entry;
 
 import src.Absyn.*;
 import src.Absyn.Void;
+import src.TypeChecker.BlkRet;
+import src.TypeChecker.EvalExpr;
+import src.TypeChecker.StmtRet;
 
 public class LLVMCodeGenerator {
 	private StringBuilder outputString;
@@ -19,7 +22,7 @@ public class LLVMCodeGenerator {
 		if (t.equals(new Int())) {
 			return "i32";
 		} else if (t.equals(new Doub())) {
-			return "d32";
+			return "double";
 		} else if (t.equals(new Bool())){
 			return "i1";
 		} else if (t.equals(new StringLit())) { // StringLit
@@ -32,6 +35,8 @@ public class LLVMCodeGenerator {
 	private String getCmpFromType(Type t) {
 		if (t.equals(new Int())) {
 			return "icmp";
+		} else if (t.equals(new Doub())) {
+			return "fcmp";
 		}
 		System.out.print("Can't find cmp for type " + t.toString());
 //		System.exit(1);
@@ -116,7 +121,22 @@ public class LLVMCodeGenerator {
 		return "\nbr i1 " + expr + ", label %" + label1 + ", label %" + label2;
 	}
 	
-	private String call(LLVMFunType fun, List<String> arguments) {
+	private Tuple<String, String> call3(Type t, LLVMFunType fun, List<String> arguments) {
+		String var = newLocalVar();
+		String callInstruction = "\n" + var + " = call " + spR(getLLVMTypeFromType(t)) + fun.name + "(";
+		if (!fun.argTypes.isEmpty()) {
+			callInstruction += getLLVMTypeFromType(fun.argTypes.get(0)) + spL(arguments.get(0));
+		}
+		for (int i = 1; i < arguments.size(); i++) {
+			callInstruction += " ,";
+			callInstruction += spR(getLLVMTypeFromType(fun.argTypes.get(i)));
+			callInstruction += arguments.get(i);
+		}
+		callInstruction += ")";
+		return new Tuple<String, String>(var, callInstruction);
+	}
+	
+	private String call2(LLVMFunType fun, List<String> arguments) {
 		String callInstruction = "\ncall " + spR(getLLVMTypeFromType(fun.type)) + fun.name + "(";
 		if (!fun.argTypes.isEmpty()) {
 			callInstruction += getLLVMTypeFromType(fun.argTypes.get(0)) + spL(arguments.get(0));
@@ -128,25 +148,26 @@ public class LLVMCodeGenerator {
 		}
 		callInstruction += ")";
 		return callInstruction;
-	}
+	}	
+	
 	
 	private String ret(Type t, String expr) {
-		return "ret " + getLLVMTypeFromType(t) + spL(expr);
+		return "\nret " + getLLVMTypeFromType(t) + spL(expr) + "\n";
 	}
 	
 	private String vRet() {
-		return "ret void";
+		return "\nret void\n";
 	}
 	
 	private Tuple<String, String> addMul(Type t, String op1, String op2, String operation) {
 		String varName = newLocalVar();
-		String instruction = varName + " = " + sp(spR(operation) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2;
+		String instruction = "\n" + varName + " = " + sp(spR(operation) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2 + "\n";
 		return new Tuple<String, String>(varName, instruction);
 	}
 	
 	private Tuple<String, String> not(String expr) {
 		String var = newLocalVar();
-		return new Tuple<String, String>(var, var + " = xor i32 " + expr + ", -1");
+		return new Tuple<String, String>(var, "\n" + var + " = xor i32 " + expr + ", -1\n");
 	}
 	
 	
@@ -256,6 +277,19 @@ public class LLVMCodeGenerator {
 			outputString.append(") {");
 			newLine();
 			outputString.append("entry:\n");
+			
+			//Store all parameters to pointers
+			for (int i = 0; i < p.listarg_.size(); i++) {
+				Type t = p.listarg_.get(i).accept(new ArgumentType(), arg);
+				String name = p.listarg_.get(i).accept(new ArgumentName(), arg);
+				String allocaInstruction = alloca(name, t);
+				outputString.append(allocaInstruction);
+				newLine();
+				String storeInstruction = store(t, "%" + name, javaletteVarToPointer(name));
+				outputString.append(storeInstruction);
+				newLine();
+			}
+			
 			Boolean blkReturns = p.blk_.accept(new OutputBlk(), null);
 			if (!blkReturns) {
 				newLine();
@@ -281,8 +315,11 @@ public class LLVMCodeGenerator {
 			
 			String allocInstruction = alloca(p.ident_, t);
 			outputString.append(allocInstruction);
-			
-			String storeInstruction = store(t, "0", pointerName);
+			String val = "0";
+			if (t.equals(new Doub())) {
+				val = "0.0";
+			}
+			String storeInstruction = store(t, val, pointerName);
 			outputString.append(storeInstruction);
 			
 			return pointerName;
@@ -320,7 +357,23 @@ public class LLVMCodeGenerator {
 			}
 			return returns;
 		}
-		
+	}
+	
+	// On block level, makes sure that a block returns
+	public class BlkRet implements Blk.Visitor<Boolean, String> {
+
+		@Override
+		public Boolean visit(Block p, String arg) throws TypeException {
+			StmtRet stmtRetVisitor = new StmtRet();
+			Boolean returns = false;
+			for (Stmt stmt : p.liststmt_) {
+				returns = stmt.accept(stmtRetVisitor, arg);
+				if (returns) {
+					break;
+				}
+			}
+			return returns;
+		}
 	}
 	
 	public class OutputStmt implements Stmt.Visitor<Boolean, String> {
@@ -353,7 +406,7 @@ public class LLVMCodeGenerator {
 		public Boolean visit(Ass p, String label) throws TypeException {
 			newLine();
 			outputString.append("; Assigning to " + p.ident_);
-			
+			newLine();
 			String expr = p.expr_.accept(new OutputExpr(), null);
 			Type t =  p.expr_.accept(new ExprTypeVisitor(), null);
 			
@@ -424,8 +477,15 @@ public class LLVMCodeGenerator {
 			newLine();
 			String expr = p.expr_.accept(new OutputExpr(), null);
 			String trueLabel = newLabel();
-			String endLabel = newLabel();
-			String brInstruction = br2(expr, trueLabel, endLabel);
+			Boolean stmtReturns = p.stmt_.accept(new StmtRet(), null);
+			String endLabel = null;
+			String brInstruction;
+			if (!stmtReturns) {
+				endLabel = newLabel();
+				brInstruction = br2(expr, trueLabel, endLabel);
+			} else {
+				brInstruction = br1(trueLabel);
+			}
 			outputString.append(brInstruction);
 			newLine();
 			outputString.append("; trueLabel");
@@ -433,10 +493,14 @@ public class LLVMCodeGenerator {
 			outputString.append(trueLabel + ":");
 			newLine();
 			Boolean returns = p.stmt_.accept(this, endLabel);
-			newLine();
-			outputString.append("; endLabel");
-			newLine();
-			outputString.append(endLabel + ":");
+			if (!stmtReturns) {
+				newLine();
+				outputString.append(br1(endLabel));
+				newLine();
+				outputString.append("; endLabel");
+				newLine();
+				outputString.append(endLabel + ":");
+			}
 			return returns;
 		}
 
@@ -446,7 +510,12 @@ public class LLVMCodeGenerator {
 			String expr = p.expr_.accept(new OutputExpr(), null);
 			String trueLabel = newLabel();
 			String falseLabel = newLabel();
-			String endLabel = newLabel();
+			String endLabel = null;
+			Boolean stmt1Returns = p.stmt_1.accept(new StmtRet(), null);
+			Boolean stmt2Returns = p.stmt_2.accept(new StmtRet(), null);
+			if (!(stmt1Returns && stmt2Returns)) {
+				endLabel = newLabel();
+			}
 			String brInstruction = br2(expr, trueLabel, falseLabel);
 			outputString.append(brInstruction);
 			newLine();
@@ -461,10 +530,12 @@ public class LLVMCodeGenerator {
 			outputString.append(falseLabel + ":");
 			newLine();
 			Boolean secondReturns = p.stmt_2.accept(this, endLabel);
-			newLine();
-			outputString.append("; endLabel");
-			newLine();
-			outputString.append(endLabel + ":");
+			if (!(stmt1Returns && stmt2Returns)) {
+				newLine();
+				outputString.append("; endLabel");
+				newLine();
+				outputString.append(endLabel + ":");
+			}
 			return firstReturns && secondReturns;
 		}
 
@@ -500,6 +571,75 @@ public class LLVMCodeGenerator {
 		}
 		
 	}
+	
+	// Class that checks that a statement contains a return in all possible paths
+		public class StmtRet implements Stmt.Visitor<Boolean, String> {
+
+			@Override
+			public Boolean visit(Empty p, String arg) {
+				return false;
+			}
+
+			@Override
+			public Boolean visit(BStmt p, String arg) throws TypeException {
+				return p.blk_.accept(new BlkRet(), arg);
+			}
+
+			@Override
+			public Boolean visit(Decl p, String arg) throws TypeException {
+				return false;
+			}
+
+			@Override
+			public Boolean visit(Ass p, String arg) throws TypeException {
+				return false;
+			}
+
+			@Override
+			public Boolean visit(Incr p, String arg) throws TypeException {
+				return false;
+			}
+
+			@Override
+			public Boolean visit(Decr p, String arg) throws TypeException {
+				return false;
+			}
+
+			@Override
+			public Boolean visit(Ret p, String arg) throws TypeException {
+				return true;
+			}
+
+			@Override
+			public Boolean visit(VRet p, String arg) throws TypeException {
+				return true;
+			}
+
+			@Override
+			public Boolean visit(Cond p, String arg) throws TypeException {
+				Boolean ifReturns = p.stmt_.accept(this, arg);
+				return ifReturns;
+			}
+
+			@Override
+			public Boolean visit(CondElse p, String arg) throws TypeException {
+				Boolean ifReturns = p.stmt_1.accept(this, arg);
+				Boolean elseReturns = p.stmt_2.accept(this, arg);
+				return ifReturns && elseReturns;
+			}
+
+			@Override
+			public Boolean visit(While p, String arg) throws TypeException {
+				Boolean whileReturns = p.stmt_.accept(this, arg);
+				return whileReturns;
+			}
+
+			@Override
+			public Boolean visit(SExp p, String arg) throws TypeException {
+				return false;
+			}
+			
+		}
 	
 	public class OutputExpr implements Expr.Visitor<String, Type> {
 		
@@ -538,13 +678,23 @@ public class LLVMCodeGenerator {
 		@Override
 		public String visit(EApp p, Type arg) throws TypeException {
 			LLVMFunType function = env.funTypes.get(p.ident_);
+			Type t = function.type;
 			List<String> exprs = new ArrayList<String>();
 			for (Expr expr : p.listexpr_) {
 				exprs.add(expr.accept(this, arg));
 			}
-			String callInstruction = call(function, exprs);
+			String callInstruction;
+			String callVar = null;
+			if (t.equals(new Void())) {
+				callInstruction = call2(function, exprs);
+			} else {
+				Tuple<String, String> callTuple = call3(t, function, exprs);
+				callVar = callTuple.x;
+				callInstruction = callTuple.y;
+			}
 			outputString.append(callInstruction);
-			return null;
+			newLine();
+			return callVar;
 		}
 
 		@Override

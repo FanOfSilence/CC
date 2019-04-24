@@ -29,23 +29,23 @@ public class jlc
     try
     {
       src.Absyn.Prog parse_tree = p.pProg();
-      System.out.println();
-      System.out.println("Parse Succesful!");
-      System.out.println();
-      System.out.println("[Abstract Syntax]");
-      System.out.println();
-      System.out.println(PrettyPrinter.show(parse_tree));
-      System.out.println();
-      System.out.println("[Linearized Tree]");
-      System.out.println();
-      System.out.println(PrettyPrinter.print(parse_tree));
+//      System.out.println();
+//      System.out.println("Parse Succesful!");
+//      System.out.println();
+//      System.out.println("[Abstract Syntax]");
+//      System.out.println();
+//      System.out.println(PrettyPrinter.show(parse_tree));
+//      System.out.println();
+//      System.out.println("[Linearized Tree]");
+//      System.out.println();
+//      System.out.println(PrettyPrinter.print(parse_tree));
       TypeChecker skel = new TypeChecker();
       TypeChecker.ProgVisitor progVis = skel.new ProgVisitor();
       Prog typedParseTree = parse_tree.accept(progVis, null);
-      System.out.println("Program accepted without any type errors!");
-      System.out.println("[Abstract Syntax with type annotations]");
-      System.out.println();
-      System.out.println(PrettyPrinter.show(typedParseTree));
+//      System.out.println("Program accepted without any type errors!");
+//      System.out.println("[Abstract Syntax with type annotations]");
+//      System.out.println();
+//      System.out.println(PrettyPrinter.show(typedParseTree));
       System.err.println("OK");
       LLVMCodeGenerator codeGenerator = new LLVMCodeGenerator();
       LLVMCodeGenerator.ProgVisitor outputProg = codeGenerator.new ProgVisitor();
