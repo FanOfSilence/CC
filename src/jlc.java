@@ -36,9 +36,9 @@ public class jlc
 //      System.out.println();
 //      System.out.println(PrettyPrinter.show(parse_tree));
 //      System.out.println();
-//      System.out.println("[Linearized Tree]");
-//      System.out.println();
-//      System.out.println(PrettyPrinter.print(parse_tree));
+      System.out.println("[Linearized Tree]");
+      System.out.println();
+      System.out.println(PrettyPrinter.print(parse_tree));
       TypeChecker skel = new TypeChecker();
       TypeChecker.ProgVisitor progVis = skel.new ProgVisitor();
       Prog typedParseTree = parse_tree.accept(progVis, null);
@@ -47,10 +47,19 @@ public class jlc
 //      System.out.println();
 //      System.out.println(PrettyPrinter.show(typedParseTree));
       System.err.println("OK");
-      LLVMCodeGenerator codeGenerator = new LLVMCodeGenerator();
-      LLVMCodeGenerator.ProgVisitor outputProg = codeGenerator.new ProgVisitor();
-      String outputtedString = typedParseTree.accept(outputProg, null);
-      System.out.print(outputtedString);
+      AlphaRenaming alphaRenaming = new AlphaRenaming();
+      AlphaRenaming.ProgAlpha progAlpha = alphaRenaming.new ProgAlpha();
+      Prog alphaRenamedParseTree = typedParseTree.accept(progAlpha, null);
+      System.out.println("[Abstract Syntax with alpha renaming]");
+	  System.out.println();
+	  System.out.println(PrettyPrinter.show(alphaRenamedParseTree));
+	  System.out.println("[Linearized Tree]");
+	  System.out.println();
+	  System.out.println(PrettyPrinter.print(alphaRenamedParseTree));    
+//      LLVMCodeGenerator codeGenerator = new LLVMCodeGenerator();
+//      LLVMCodeGenerator.ProgVisitor outputProg = codeGenerator.new ProgVisitor();
+//      String outputtedString = typedParseTree.accept(outputProg, null);
+//      System.out.print(outputtedString);
     }
     catch (TypeException t) {
     	t.printStackTrace();
