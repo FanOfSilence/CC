@@ -233,7 +233,7 @@ public class LLVMCodeGenerator {
 			String readDouble = "readDouble";
 			String llvmReadDouble = "@" + readDouble;
 			env.funTypes.put(readDouble, new LLVMFunType(llvmReadDouble, new ArrayList<Type>(), new Doub()));
-			outputString.append("declare i32 @readDouble()\n");
+			outputString.append("declare double @readDouble()\n");
 			
 			
 			for (TopDef topDef : p.listtopdef_) {
@@ -551,16 +551,25 @@ public class LLVMCodeGenerator {
 			newLine();
 			Boolean firstReturns = p.stmt_1.accept(this, endLabel);
 			newLine();
+			if (!stmt1Returns) {
+				outputString.append(br1(endLabel));
+				newLine();
+			}
 			outputString.append("; falseLabel");
 			newLine();
 			outputString.append(falseLabel + ":");
 			newLine();
 			Boolean secondReturns = p.stmt_2.accept(this, endLabel);
-			if (!(stmt1Returns && stmt2Returns)) {
+			if (!stmt2Returns) {
 				newLine();
+				outputString.append(br1(endLabel));
+				newLine();
+			}
+			if (!stmt1Returns || !stmt2Returns) {
 				outputString.append("; endLabel");
 				newLine();
 				outputString.append(endLabel + ":");
+				newLine();
 			}
 			return firstReturns && secondReturns;
 		}
