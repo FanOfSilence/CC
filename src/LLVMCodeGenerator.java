@@ -736,8 +736,8 @@ public class LLVMCodeGenerator {
 		public String visit(EString p, Type arg) {
 			// Add string to beginning of outputString
 			String varName = newGlobalVar();
-			int stringLength = p.string_.length() + 2;
-			outputString.insert(0, "\n" + varName + " = internal constant [" + stringLength + " x i8] c\"" + p.string_ + "\\A0\\00\"" + "\n");
+			int stringLength = p.string_.length() + 1;
+			outputString.insert(0, "\n" + varName + " = internal constant [" + stringLength + " x i8] c\"" + p.string_ + "\\00\"" + "\n");
 			String localVar = newLocalVar();
 			outputString.append(localVar + " = getelementptr [" + stringLength + " x i8], [" + stringLength + " x i8]* " + varName + ", i32 0, i32 0");
 			return localVar;
