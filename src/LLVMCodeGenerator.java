@@ -230,6 +230,11 @@ public class LLVMCodeGenerator {
 			env.funTypes.put(readInt, new LLVMFunType(llvmReadInt, new ArrayList<Type>(), new Int()));
 			outputString.append("declare i32 @readInt()\n");
 			
+			String readDouble = "readDouble";
+			String llvmReadDouble = "@" + readDouble;
+			env.funTypes.put(readDouble, new LLVMFunType(llvmReadDouble, new ArrayList<Type>(), new Doub()));
+			outputString.append("declare i32 @readDouble()\n");
+			
 			
 			for (TopDef topDef : p.listtopdef_) {
 				topDef.accept(new AddTopDef(), arg);
@@ -351,7 +356,7 @@ public class LLVMCodeGenerator {
 			env.varTypes.put(p.ident_, t);
 			
 			String pointerName = javaletteVarToPointer(p.ident_);
-			String expression = p.expr_.accept(new OutputExpr(), null);
+			String expression = p.expr_.accept(new OutputExpr(), t);
 			
 			newLine();
 			outputString.append("; Initializing " + p.ident_);
@@ -774,6 +779,10 @@ public class LLVMCodeGenerator {
 			String op2 = p.expr_2.accept(this, t);
 			String varName = newLocalVar();
 			Type type = p.expr_1.accept(new ExprTypeVisitor(), null);
+			//Temporary solution. 
+			if (type == null) {
+				type = t;
+			}
 			String addOp = p.addop_.accept(new AddExpr(), type);
 			outputString.append(varName + " = " + sp(spR(addOp) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2);
 			return varName;
