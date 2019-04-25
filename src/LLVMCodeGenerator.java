@@ -32,8 +32,22 @@ public class LLVMCodeGenerator {
 		}
 	}
 	
-	private String getCmpFromType(Type t) {
+	private String defaultReturnValue(Type t) {
 		if (t.equals(new Int())) {
+			return "i32 0";
+		} else if (t.equals(new Doub())) {
+			return "double 0.0";
+		} else if (t.equals(new Bool())){
+			return "i1 false";
+		} else if (t.equals(new StringLit())) { // StringLit
+			return "i8* _";
+		} else {
+			return "void";
+		}
+	}
+	
+	private String getCmpFromType(Type t) {
+		if (t.equals(new Int()) || t.equals(new Bool())) {
 			return "icmp";
 		} else if (t.equals(new Doub())) {
 			return "fcmp";
@@ -81,6 +95,10 @@ public class LLVMCodeGenerator {
 	private String newLocalPointer(String s) {
 		return s + "_p";
 	}
+
+	private String javaletteVarToPointer(String jlVar) {
+		return "%" + jlVar + "_p";
+	}
 	
 	private String store(Type t1, String valToStore, String to) {
 		String stringType = getLLVMTypeFromType(t1);
@@ -102,9 +120,6 @@ public class LLVMCodeGenerator {
 		return allocInstruction;
 	}
 	
-	private String javaletteVarToPointer(String jlVar) {
-		return "%" + jlVar + "_p";
-	}
 	
 	private Tuple<String, String> load(Type t, String fromPointer) {
 		String varName = newLocalVar();
@@ -163,6 +178,12 @@ public class LLVMCodeGenerator {
 		String varName = newLocalVar();
 		String instruction = "\n" + varName + " = " + sp(spR(operation) + getLLVMTypeFromType(t)) + " " + op1 + ", " + op2 + "\n";
 		return new Tuple<String, String>(varName, instruction);
+	}
+	
+	private Tuple<String, String> andOr(String op1, String op2, String operation) {
+		String var = newLocalVar();
+		String instruction = "\n" + var + " = " + operation + " i1 " + op1 + ", " + op2 + "\n";
+		return new Tuple<String, String>(var, instruction);
 	}
 	
 	private Tuple<String, String> not(String expr) {
@@ -265,14 +286,14 @@ public class LLVMCodeGenerator {
 				Arg firstArg = p.listarg_.get(0);
 				String argType0 = getLLVMTypeFromType(firstArg.accept(new ArgumentType(), arg));
 				String argName0 = firstArg.accept(new ArgumentName(), arg);
-				outputString.append(argType0 + spL(argName0));
+				outputString.append(argType0 + spL("%" + argName0));
 			}
 			
 			for (int i = 1; i < p.listarg_.size(); i++) {
 				Arg argument = p.listarg_.get(i);
 				String argType = getLLVMTypeFromType(argument.accept(new ArgumentType(), arg));
 				String argName = argument.accept(new ArgumentName(), arg);
-				outputString.append(", " + spR(argType) + argName);
+				outputString.append(", " + spR(argType) + "%" + argName);
 			}
 			outputString.append(") {");
 			newLine();
@@ -293,7 +314,7 @@ public class LLVMCodeGenerator {
 			Boolean blkReturns = p.blk_.accept(new OutputBlk(), null);
 			if (!blkReturns) {
 				newLine();
-				outputString.append("ret void");
+				outputString.append("ret " + defaultReturnValue(p.type_));
 			}
 			newLine();
 			outputString.append("}");
@@ -714,10 +735,13 @@ public class LLVMCodeGenerator {
 			String typeString = getLLVMTypeFromType(t);
 			String negVar = newLocalVar();
 			String subOp = "sub";
+			String val = "0";
 			if (t.equals(new Doub())) {
 				subOp = "fsub";
+				val = "0.0";
 			}
-			outputString.append(negVar + " = " + spR(subOp) + typeString + " 0, " + var);
+			
+			outputString.append(negVar + " = " + spR(subOp) + typeString + spL(val) + ", " + var);
 			return negVar;
 		}
 
@@ -760,7 +784,8 @@ public class LLVMCodeGenerator {
 			Type type = p.expr_1.accept(new ExprTypeVisitor(), null);
 			String op1 = p.expr_1.accept(this, t);
 			String op2 = p.expr_2.accept(this, t);
-			String relOp = p.relop_.accept(new RelExpr(), null);
+			Type t1 = p.expr_1.accept(new ExprTypeVisitor(), null);
+			String relOp = p.relop_.accept(new RelExpr(), t1);
 			String cmp = getCmpFromType(type);
 			String typeString = getLLVMTypeFromType(type);
 			String relVar = newLocalVar();
@@ -772,31 +797,42 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(EAnd p, Type t) throws TypeException {
-			outputString.append(sp("and " + getLLVMTypeFromType(t)));
-			p.expr_1.accept(this, t);
-			outputString.append(sp(","));
-			p.expr_2.accept(this, t);
-			return null;
+			String expr1 = p.expr_1.accept(this, t);
+			String expr2 = p.expr_2.accept(this, t);
+			Tuple<String, String> andTuple = andOr(expr1, expr2, "and");
+			String andVar = andTuple.x;
+			String andInstruction = andTuple.y;
+			outputString.append(andInstruction);
+			newLine();
+			return andVar;
 		}
 
 		@Override
 		public String visit(EOr p, Type t) throws TypeException {
-			//TODO: should not know about if else
-//			String op1 = p.expr_1.accept(this, t);
-//			String orElseLabel = newLabel();
-//			String trueLabel = "%" + getLabel(1);
-//			String falseLabel = "%" + getLabel(2);
+			String expr1 = p.expr_1.accept(this, t);
+			String expr2 = p.expr_2.accept(this, t);
+			Tuple<String, String> orTuple = andOr(expr1, expr2, "or");
+			String orVar = orTuple.x;
+			String orInstruction = orTuple.y;
+			outputString.append(orInstruction);
 			newLine();
-//			outputString.append("br i1 " + op1 + ", " + "label " + trueLabel +", label %" + orElseLabel);
-			newLine();
-//			outputString.append("; orElseLabel");
-			newLine();
-//			outputString.append(orElseLabel + ":");
-			newLine();
-			String op2 = p.expr_2.accept(this, t);
-			newLine();
-//			outputString.append("br i1 " + op2 + ", " + "label "+ trueLabel + ", label " + falseLabel);
-			return op2;
+			return orVar;
+//			//TODO: should not know about if else
+////			String op1 = p.expr_1.accept(this, t);
+////			String orElseLabel = newLabel();
+////			String trueLabel = "%" + getLabel(1);
+////			String falseLabel = "%" + getLabel(2);
+//			newLine();
+////			outputString.append("br i1 " + op1 + ", " + "label " + trueLabel +", label %" + orElseLabel);
+//			newLine();
+////			outputString.append("; orElseLabel");
+//			newLine();
+////			outputString.append(orElseLabel + ":");
+//			newLine();
+//			String op2 = p.expr_2.accept(this, t);
+//			newLine();
+////			outputString.append("br i1 " + op2 + ", " + "label "+ trueLabel + ", label " + falseLabel);
+//			return op2;
 		}
 
 		@Override
@@ -885,36 +921,60 @@ public class LLVMCodeGenerator {
 		
 	}
 	
-	public class RelExpr implements RelOp.Visitor<String, String> {
+	public class RelExpr implements RelOp.Visitor<String, Type> {
 
 		@Override
-		public String visit(LTH p, String arg) {
-			return "slt";
+		public String visit(LTH p, Type t) {
+			String cmp = "slt";
+			if (t.equals(new Doub())) {
+				cmp = "olt";
+			}
+			return cmp;
 		}
 
 		@Override
-		public String visit(LE p, String arg) {
-			return "sle";
+		public String visit(LE p, Type t) {
+			String cmp = "sle";
+			if (t.equals(new Doub())) {
+				cmp = "ole";
+			}
+			return cmp;
 		}
 
 		@Override
-		public String visit(GTH p, String arg) {
-			return "sgt";
+		public String visit(GTH p, Type t) {
+			String cmp = "sgt";
+			if (t.equals(new Doub())) {
+				cmp = "ogt";
+			}
+			return cmp;
 		}
 
 		@Override
-		public String visit(GE p, String arg) {
-			return "sge";
+		public String visit(GE p, Type t) {
+			String cmp = "sge";
+			if (t.equals(new Doub())) {
+				cmp = "oge";
+			}
+			return cmp;
 		}
 
 		@Override
-		public String visit(EQU p, String arg) {
-			return "eq";
+		public String visit(EQU p, Type t) {
+			String cmp = "eq";
+			if (t.equals(new Doub())) {
+				cmp = "oeq";
+			}
+			return cmp;
 		}
 
 		@Override
-		public String visit(NE p, String arg) {
-			return "ne";
+		public String visit(NE p, Type t) {
+			String cmp = "ne";
+			if (t.equals(new Doub())) {
+				cmp = "one";
+			}
+			return cmp;
 		}
 		
 	}
