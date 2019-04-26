@@ -136,7 +136,7 @@ public class AlphaRenaming {
 		@Override
 		public Stmt visit(Decr p, AlphaEnv env) throws TypeException {
 			String newId = env.lookupVar(p.ident_);
-			return new Incr(newId);
+			return new Decr(newId);
 		}
 
 		@Override
