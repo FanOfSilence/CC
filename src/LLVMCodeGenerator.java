@@ -95,6 +95,10 @@ public class LLVMCodeGenerator {
 	private String newLocalPointer(String s) {
 		return s + "_p";
 	}
+	
+	private String newLocalPointer() {
+		return newLocalVar() + "_p";
+	}
 
 	private String javaletteVarToPointer(String jlVar) {
 		return "%" + jlVar + "_p";
@@ -188,7 +192,7 @@ public class LLVMCodeGenerator {
 	
 	private Tuple<String, String> not(String expr) {
 		String var = newLocalVar();
-		return new Tuple<String, String>(var, "\n" + var + " = xor i32 " + expr + ", -1\n");
+		return new Tuple<String, String>(var, "\n" + var + " = xor i1 " + expr + ", -1\n");
 	}
 	
 	
@@ -761,7 +765,8 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(Not p, Type t) throws TypeException {
-			String expr = p.expr_.accept(this, t);
+			Type t1 = p.expr_.accept(new ExprTypeVisitor(), null);
+			String expr = p.expr_.accept(this, t1);
 			Tuple<String, String> notTuple = not(expr);
 			String varName = notTuple.x;
 			String notInstruction = notTuple.y;
@@ -815,42 +820,106 @@ public class LLVMCodeGenerator {
 
 		@Override
 		public String visit(EAnd p, Type t) throws TypeException {
+			String lazyTrueLabel = newLabel();
+			String lazyFalseLabel = newLabel();
+			
+			// Used for setting the value of the expression
+			Tuple<String, String> allocTuple = alloca(new Bool());
+			String allocVar = allocTuple.x;
+			String allocInstruction = allocTuple.y;
+			outputString.append(allocInstruction);
+			//Set default value
+			String storeFalseInstruction = store(new Bool(), "false", allocVar);
+			outputString.append(storeFalseInstruction);
+			
+			
 			String expr1 = p.expr_1.accept(this, t);
-			String expr2 = p.expr_2.accept(this, t);
-			Tuple<String, String> andTuple = andOr(expr1, expr2, "and");
-			String andVar = andTuple.x;
-			String andInstruction = andTuple.y;
-			outputString.append(andInstruction);
+			Tuple<String, String> andTupleExpr1 = andOr(expr1, "1", "and");
+			String andVarExpr1 = andTupleExpr1.x;
+			String andInstructionExpr1 = andTupleExpr1.y;
+			outputString.append(andInstructionExpr1);
+			
+			String lazyBranchInstruction = br2(andVarExpr1, lazyTrueLabel, lazyFalseLabel);
+			outputString.append(lazyBranchInstruction);
 			newLine();
-			return andVar;
+			outputString.append(";lazyTrueLabel\n");
+			outputString.append(lazyTrueLabel + ":");
+			newLine();
+			
+			String expr2 = p.expr_2.accept(this, t);
+			Tuple<String, String> andTupleExpr2 = andOr("1", expr2, "and");
+			String andVarExpr2 = andTupleExpr2.x;
+			String andInstructionExpr2 = andTupleExpr2.y;
+			outputString.append(andInstructionExpr2);
+			
+			String storeTrueInstruction = store(new Bool(), andVarExpr2, allocVar);
+			outputString.append(storeTrueInstruction);
+			
+			String alwaysBranchInstruction = br1(lazyFalseLabel);
+			outputString.append(alwaysBranchInstruction);
+			newLine();
+			outputString.append("; lazyFalseLabel\n");
+			outputString.append(lazyFalseLabel + ":");
+			
+			//Read back value stored to a register
+			Tuple<String, String> loadTuple = load(new Bool(), allocVar);
+			String loadVar = loadTuple.x;
+			String loadInstruction = loadTuple.y;
+			outputString.append(loadInstruction);
+			
+			return loadVar;
 		}
 
 		@Override
 		public String visit(EOr p, Type t) throws TypeException {
+			String lazyTrueLabel = newLabel();
+			String lazyFalseLabel = newLabel();
+			
+			// Used for setting the value of the expression
+			Tuple<String, String> allocTuple = alloca(new Bool());
+			String allocVar = allocTuple.x;
+			String allocInstruction = allocTuple.y;
+			outputString.append(allocInstruction);
+			//Set default value
+			String storeTrueInstruction = store(new Bool(), "true", allocVar);
+			outputString.append(storeTrueInstruction);
+			
+			
 			String expr1 = p.expr_1.accept(this, t);
-			String expr2 = p.expr_2.accept(this, t);
-			Tuple<String, String> orTuple = andOr(expr1, expr2, "or");
-			String orVar = orTuple.x;
-			String orInstruction = orTuple.y;
-			outputString.append(orInstruction);
+			Tuple<String, String> orTupleExpr1 = andOr(expr1, "0", "or");
+			String orVarExpr1 = orTupleExpr1.x;
+			String orInstructionExpr1 = orTupleExpr1.y;
+			outputString.append(orInstructionExpr1);
+			
+			String lazyBranchInstruction = br2(orVarExpr1, lazyTrueLabel, lazyFalseLabel);
+			outputString.append(lazyBranchInstruction);
 			newLine();
-			return orVar;
-//			//TODO: should not know about if else
-////			String op1 = p.expr_1.accept(this, t);
-////			String orElseLabel = newLabel();
-////			String trueLabel = "%" + getLabel(1);
-////			String falseLabel = "%" + getLabel(2);
-//			newLine();
-////			outputString.append("br i1 " + op1 + ", " + "label " + trueLabel +", label %" + orElseLabel);
-//			newLine();
-////			outputString.append("; orElseLabel");
-//			newLine();
-////			outputString.append(orElseLabel + ":");
-//			newLine();
-//			String op2 = p.expr_2.accept(this, t);
-//			newLine();
-////			outputString.append("br i1 " + op2 + ", " + "label "+ trueLabel + ", label " + falseLabel);
-//			return op2;
+			outputString.append(";lazyFalseLabel\n");
+			outputString.append(lazyFalseLabel + ":");
+			newLine();
+			
+			String expr2 = p.expr_2.accept(this, t);
+			Tuple<String, String> orTupleExpr2 = andOr("0", expr2, "or");
+			String orVarExpr2 = orTupleExpr2.x;
+			String orInstructionExpr2 = orTupleExpr2.y;
+			outputString.append(orInstructionExpr2);
+			
+			String storeFalseInstruction = store(new Bool(), orVarExpr2, allocVar);
+			outputString.append(storeFalseInstruction);
+			
+			String alwaysBranchInstruction = br1(lazyTrueLabel);
+			outputString.append(alwaysBranchInstruction);
+			newLine();
+			outputString.append("; lazyTrueLabel\n");
+			outputString.append(lazyTrueLabel + ":");
+			
+			//Read back value stored to a register
+			Tuple<String, String> loadTuple = load(new Bool(), allocVar);
+			String loadVar = loadTuple.x;
+			String loadInstruction = loadTuple.y;
+			outputString.append(loadInstruction);
+			
+			return loadVar;
 		}
 
 		@Override
