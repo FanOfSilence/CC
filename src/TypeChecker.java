@@ -395,7 +395,7 @@ public class TypeChecker {
 			Type t = notTuple.x;
 			TypedE typedExpr = notTuple.y;
 			if (t.equals(new Bool())) {
-				return new Tuple<Type, TypedE>(t, new TypedE(t, typedExpr));
+				return new Tuple<Type, TypedE>(t, new TypedE(t, new Not(typedExpr)));
 			}
 			throw new TypeException("Operand to ! must be boolean");
 		}
