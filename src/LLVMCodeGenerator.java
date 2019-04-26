@@ -508,30 +508,24 @@ public class LLVMCodeGenerator {
 			String expr = p.expr_.accept(new OutputExpr(), null);
 			String trueLabel = newLabel();
 			Boolean stmtReturns = p.stmt_.accept(new StmtRet(), null);
-			String endLabel = null;
-			String brInstruction;
-			if (!stmtReturns) {
-				endLabel = newLabel();
-				brInstruction = br2(expr, trueLabel, endLabel);
-			} else {
-				brInstruction = br1(trueLabel);
-			}
+			String endLabel = newLabel();
+			String brInstruction = br2(expr, trueLabel, endLabel);
 			outputString.append(brInstruction);
 			newLine();
 			outputString.append("; trueLabel");
 			newLine();
 			outputString.append(trueLabel + ":");
 			newLine();
-			Boolean returns = p.stmt_.accept(this, endLabel);
+			p.stmt_.accept(this, endLabel);
 			if (!stmtReturns) {
 				newLine();
 				outputString.append(br1(endLabel));
-				newLine();
-				outputString.append("; endLabel");
-				newLine();
-				outputString.append(endLabel + ":");
 			}
-			return returns;
+			newLine();
+			outputString.append("; endLabel");
+			newLine();
+			outputString.append(endLabel + ":");
+			return false;
 		}
 
 		@Override
