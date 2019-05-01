@@ -1150,7 +1150,6 @@ class LLVMEnv {
 	public HashMap<String, Type> varTypes;
 	
 	public LLVMEnv() {
-//		signature = new HashMap<String, FunType>();
 		emptyEnv();
 		vars = new HashMap<String, String>();
 		funTypes = new HashMap<String, LLVMFunType>();
@@ -1169,10 +1168,6 @@ class LLVMEnv {
 		}
 		throw new TypeException("Variable " + id + " used before declaration");
 	}
-	
-//	public FunType lookupFun(String id) {
-//		return signature.get(id);
-//	}
 	
 	public void addVar(String id, Type t, boolean initialized) throws TypeException {
 		if (lookupVarCurrentContext(id) != null) {
@@ -1194,13 +1189,6 @@ class LLVMEnv {
 		throw new TypeException("Var " + id + " has to be declared before assignment");
 	}
 	
-//	public void updateFun(String id, FunType f) throws TypeException {
-//		if (signature.containsKey(id)) {
-//			throw new TypeException("Function " + id + " already defined");
-//		} else {
-//			signature.put(id, f);
-//		}
-//	}
 	
 	public void emptyEnv() {
 		contexts = new LinkedList<HashMap<String, Tuple<Type, Boolean>>>();
